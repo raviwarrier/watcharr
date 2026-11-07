@@ -46,6 +46,7 @@ type Book = {
   appleAudiobookUrl?: string | null;
   ownedEbook?: boolean;
   ownedAudiobook?: boolean;
+  absItemUrl?: string | null;
   lastCheckedAt: string | null;
   createdAt?: string | null;
 };
@@ -231,11 +232,14 @@ function FormatChip({
   icon: Icon,
   found,
   url,
+  appUrl,
 }: {
   label: string;
   icon: typeof FileText;
   found: boolean | null;
   url: string | null;
+  /** Link into another app, such as the book in Audiobookshelf. */
+  appUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -334,6 +338,20 @@ function FormatChip({
                   <ExternalLink className="h-3.5 w-3.5" />
                   Open link
                 </Button>
+                {appUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 justify-start gap-2 text-xs"
+                    onClick={() => {
+                      window.open(appUrl, "_blank", "noopener,noreferrer");
+                      setOpen(false);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open in Audiobookshelf
+                  </Button>
+                )}
               </>
             ) : (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">No link yet. Re-check the book to find one.</p>
@@ -583,7 +601,8 @@ export default function DashboardPage() {
     const matches = (b: Book) =>
       !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
     // A book counts as "released" for this app once an audiobook is available.
-    const released = (b: Book) => b.audiobookAvailable === true;
+    // Released = an audiobook is available or owned (marked by hand, or found by reconciliation).
+    const released = (b: Book) => b.audiobookAvailable === true || b.ownedAudiobook === true;
     const upcoming = books
       .filter((b) => !released(b) && matches(b))
       .sort((a, b) => compareBooks(upcomingSort, a, b));
@@ -591,7 +610,7 @@ export default function DashboardPage() {
       .filter((b) => released(b) && matches(b))
       .sort((a, b) => compareBooks(releasedSort, a, b));
     return [
-      { key: "upcoming" as const, title: "Upcoming", items: upcoming, sort: upcomingSort, setSort: setUpcomingSort, options: UPCOMING_SORTS },
+      { key: "upcoming" as const, title: "Watchlist", items: upcoming, sort: upcomingSort, setSort: setUpcomingSort, options: UPCOMING_SORTS },
       { key: "released" as const, title: "Released", items: done, sort: releasedSort, setSort: setReleasedSort, options: RELEASED_SORTS },
     ].filter((s) => filter === "all" || filter === s.key);
   }, [books, query, filter, upcomingSort, releasedSort]);
@@ -838,8 +857,8 @@ export default function DashboardPage() {
                 {(
                   [
                     { value: "all", label: "All", count: books.length },
-                    { value: "upcoming", label: "Upcoming", count: books.filter((b) => b.audiobookAvailable !== true).length },
-                    { value: "released", label: "Released", count: books.filter((b) => b.audiobookAvailable === true).length },
+                    { value: "upcoming", label: "Watchlist", count: books.filter((b) => !(b.audiobookAvailable === true || b.ownedAudiobook === true)).length },
+                    { value: "released", label: "Released", count: books.filter((b) => b.audiobookAvailable === true || b.ownedAudiobook === true).length },
                   ] as const
                 ).map((t) => (
                   <button
@@ -918,7 +937,7 @@ export default function DashboardPage() {
                   </div>
                   {sec.items.length === 0 && (
                     <p className="col-span-full text-sm text-muted-foreground">
-                      {query.trim() ? "No matches." : `No ${sec.title.toLowerCase()} books yet.`}
+                      {query.trim() ? "No matches." : sec.key === "upcoming" ? "Nothing on your watchlist right now." : "Nothing released yet."}
                     </p>
                   )}
                   {sec.items.map((b) => {
@@ -971,7 +990,7 @@ export default function DashboardPage() {
 
                         <div className="flex flex-wrap gap-1.5">
                           <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} url={hardcoverUrl} />
-                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} />
+                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} appUrl={b.absItemUrl ?? null} />
                         </div>
 
                       </div>

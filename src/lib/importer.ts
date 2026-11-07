@@ -3,6 +3,9 @@ import { HardcoverError, HardcoverNotConfiguredError, searchCandidates, type Boo
 import { watchBook } from "@/lib/watch";
 import { sendGotify } from "@/lib/gotify";
 import { readCsvObjects, writeCsv } from "@/lib/csv";
+import { firstAuthor, surname, titleBase } from "@/lib/match";
+import { absSettings, reconcileBook } from "@/lib/reconcile";
+import { getSettingSync } from "@/lib/db";
 
 /**
  * Library import: a queue of books (from a Goodreads or Hardcover CSV, or your Hardcover
@@ -26,30 +29,6 @@ const state = globalThis as unknown as {
 };
 
 /* ------------------------------------------------------------ text helpers */
-
-function normalise(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9 ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Title without subtitle or series part: "Dune: Book One (Dune)" -> "dune". */
-function titleBase(title: string): string {
-  return normalise(title.split(/[:(]/)[0] ?? "");
-}
-
-function firstAuthor(author: string): string {
-  return (author.split(/[;,]/)[0] ?? "").trim();
-}
-
-function surname(name: string): string {
-  const parts = normalise(name).split(" ");
-  return parts[parts.length - 1] ?? "";
-}
 
 /** Goodreads wraps ISBNs as ="9780..." so Excel doesn't lose leading zeros. */
 export function cleanIsbn(raw: string): string {
@@ -264,6 +243,11 @@ async function processItem(item: ItemRow): Promise<void> {
     setItem(item.id, "skipped", "Already on your watchlist", hardcoverId);
   } else {
     setItem(item.id, "done", null, hardcoverId);
+    // Mark it as owned in Audiobookshelf too, if the toggle is on and Audiobookshelf is set up.
+    // A failure here does not affect the import.
+    if (getSettingSync("reconcileAudiobooks") !== "false" && absSettings()) {
+      await reconcileBook(result.book.id).catch(() => undefined);
+    }
   }
 }
 

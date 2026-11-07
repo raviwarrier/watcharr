@@ -19,6 +19,10 @@ import path from "node:path";
  */
 export const PUBLIC_SETTING_KEYS = new Set([
   "recheckInterval",
+  "reconcileAudiobooks",
+  "absAuthMode",
+  "absLibraryId",
+  "absLastRun",
   "alertEbook",
   "alertAudiobook",
   "alertScheduled",

@@ -49,5 +49,6 @@ after a library import finishes.
 
 ## Other
 
+- Test a Hardcover CSV export with the library import. Check the column names and tag values.
 - Hardcover account import, to add back later (read the "want to read" list through the API).
 - Re-check a book's matching automatically after its title or author changes.

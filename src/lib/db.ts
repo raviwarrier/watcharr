@@ -67,6 +67,10 @@ if (!bookColumns.has("owned_ebook")) {
 if (!bookColumns.has("owned_audiobook")) {
   sqlite.prepare("ALTER TABLE books ADD COLUMN owned_audiobook integer NOT NULL DEFAULT 0").run();
 }
+// Audiobookshelf match columns.
+for (const [column, type] of [["abs_item_id", "text"], ["abs_match", "text"], ["abs_checked_at", "text"], ["abs_title", "text"], ["abs_author", "text"]] as const) {
+  if (!bookColumns.has(column)) sqlite.prepare(`ALTER TABLE books ADD COLUMN ${column} ${type}`).run();
+}
 
 // ---------- Settings helpers ----------
 

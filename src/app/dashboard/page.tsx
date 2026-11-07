@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExt
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -676,20 +676,22 @@ export default function DashboardPage() {
         >
           <div className="flex flex-1 items-center gap-2 px-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <Input
+            <ClearableInput
               placeholder="Title (optional)"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={setTitle}
+              wrapperClassName="flex-1"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
           </div>
           <div className="hidden h-6 w-px bg-border sm:block" />
           <div className="flex flex-1 items-center gap-2 px-2">
             <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <Input
+            <ClearableInput
               placeholder="Author (optional)"
               value={author}
-              onChange={(e) => setAuthor(e.target.value)}
+              onChange={setAuthor}
+              wrapperClassName="flex-1"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
           </div>
@@ -878,10 +880,10 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 sm:w-[28rem]">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <ClearableInput
                   placeholder="Search title or author"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={setQuery}
                   className="pl-9"
                   aria-label="Search watchlist"
                 />

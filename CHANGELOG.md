@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.13.0] - 2026-11-07
+
+### Added
+- An X button clears the title, author, and search fields on the dashboard, the watchlist search, and the review search.
+
 ## [0.12.0] - 2026-11-07
 
 ### Changed

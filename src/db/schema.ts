@@ -36,6 +36,9 @@ export const books = sqliteTable("books", {
   ebookAvailable: integer("ebook_available", { mode: "boolean" }),
   audiobookAvailable: integer("audiobook_available", { mode: "boolean" }),
   appleAudiobookUrl: text("apple_audiobook_url"), // Apple Books page when the iTunes lookup matched
+  // What the user owns, marked by hand (independent of release status).
+  ownedEbook: integer("owned_ebook", { mode: "boolean" }).notNull().default(false),
+  ownedAudiobook: integer("owned_audiobook", { mode: "boolean" }).notNull().default(false),
   lastCheckedAt: text("last_checked_at"), // ISO timestamp
   createdAt: text("created_at").notNull().$default(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$default(() => new Date().toISOString()),

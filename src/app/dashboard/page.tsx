@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,10 @@ import {
   ExternalLink,
   FileText,
   Headphones,
+  CheckCheck,
+  CassetteTape,
+  Ghost,
+  Book,
   LayoutGrid,
   List,
   Loader2,
@@ -39,6 +44,8 @@ type Book = {
   ebookAvailable: boolean | null;
   audiobookAvailable: boolean | null;
   appleAudiobookUrl?: string | null;
+  ownedEbook?: boolean;
+  ownedAudiobook?: boolean;
   lastCheckedAt: string | null;
   createdAt?: string | null;
 };
@@ -70,6 +77,29 @@ async function fetchLists(): Promise<{ books: Book[]; authors: AuthorWatch[]; ha
     authors: Array.isArray(a) ? a : [],
     hardcoverSet: hardcover?.isSet === true,
   };
+}
+
+type OwnedState = "none" | "ebook" | "audiobook" | "both";
+// Order the acquisition button cycles through.
+const OWN_ORDER: OwnedState[] = ["none", "ebook", "audiobook", "both"];
+const OWN_ICON: Record<OwnedState, typeof Ghost> = { none: Ghost, ebook: Book, audiobook: CassetteTape, both: CheckCheck };
+// Colour per state. Not owned uses the normal text colour.
+const OWN_COLOR: Record<OwnedState, string> = {
+  none: "text-muted-foreground",
+  ebook: "text-yellow-500 dark:text-yellow-400",
+  audiobook: "text-blue-500 dark:text-blue-400",
+  both: "text-emerald-600 dark:text-emerald-400",
+};
+const OWN_LABEL: Record<OwnedState, string> = {
+  none: "Not owned. Click to mark as an ebook you own",
+  ebook: "Ebook owned. Click to mark the audiobook as owned too",
+  audiobook: "Audiobook owned. Click to mark the ebook as owned too",
+  both: "Ebook and audiobook owned. Click to clear",
+};
+function ownedState(b: Book): OwnedState {
+  const e = b.ownedEbook === true;
+  const a = b.ownedAudiobook === true;
+  return e && a ? "both" : e ? "ebook" : a ? "audiobook" : "none";
 }
 
 type BooksView = "grid" | "list";
@@ -192,35 +222,65 @@ const TONE_CLASSES: Record<Tone, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-type SourceLink = { name: string; url: string };
-
 /**
- * A format pill. Clicking it opens a small menu with Copy link / Open link for each
- * source. Only sources we can link to legitimately are listed (Hardcover, LibriVox).
+ * A format pill. Clicking it opens Copy link and Open link, stacked. The menu is drawn in a layer
+ * above the page, so card borders can't clip it. A pill with no link says so instead.
  */
 function FormatChip({
   label,
   icon: Icon,
   found,
-  sources,
+  url,
 }: {
   label: string;
   icon: typeof FileText;
   found: boolean | null;
-  sources: SourceLink[];
+  url: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
+    const close = () => setOpen(false);
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
+
+  function toggle() {
+    if (!open && buttonRef.current) {
+      const r = buttonRef.current.getBoundingClientRect();
+      // Keep the menu on screen.
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - 184));
+      setPos({ top: r.bottom + 6, left });
+    }
+    setOpen((o) => !o);
+  }
+
+  async function copy() {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard can be blocked; the link is also available through Open link.
+    }
+  }
 
   const styles =
     found === true
@@ -230,21 +290,12 @@ function FormatChip({
         : "text-muted-foreground border-dashed border-border";
   const StateIcon = found === true ? CheckCircle2 : found === false ? XCircle : CircleDashed;
 
-  async function copy(name: string, url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(name);
-      setTimeout(() => setCopied((c) => (c === name ? null : c)), 1500);
-    } catch {
-      setCopied(null);
-    }
-  }
-
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
         className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80",
@@ -256,41 +307,41 @@ function FormatChip({
         {label}
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border bg-popover p-2 text-popover-foreground shadow-lg"
-        >
-          <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{label}</p>
-          {sources.length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              No free source found. The Hardcover page lists editions.
-            </p>
-          ) : (
-            sources.map((s) => (
-              <div key={s.name} className="rounded-md px-2 py-1.5">
-                <p className="text-sm font-medium">{s.name}</p>
-                <div className="mt-1 flex gap-1.5">
-                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => copy(s.name, s.url)}>
-                    <Copy className="h-3 w-3" />
-                    {copied === s.name ? "Copied" : "Copy link"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs"
-                    onClick={() => window.open(s.url, "_blank", "noopener,noreferrer")}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Open link
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ top: pos.top, left: pos.left }}
+            className="fixed z-[60] flex w-44 flex-col gap-1.5 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-lg"
+          >
+            {url ? (
+              <>
+                <Button size="sm" variant="outline" className="h-8 justify-start gap-2 text-xs" onClick={copy}>
+                  <Copy className="h-3.5 w-3.5" />
+                  {copied ? "Copied" : "Copy link"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 justify-start gap-2 text-xs"
+                  onClick={() => {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    setOpen(false);
+                  }}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open link
+                </Button>
+              </>
+            ) : (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">No link yet. Re-check the book to find one.</p>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -438,6 +489,26 @@ export default function DashboardPage() {
         next.delete(id);
         return next;
       });
+    }
+  }
+
+  /** Cycles the acquisition marker: none -> ebook -> audiobook -> both -> none. */
+  async function cycleOwned(book: Book) {
+    const current = ownedState(book);
+    const next = OWN_ORDER[(OWN_ORDER.indexOf(current) + 1) % OWN_ORDER.length];
+    const ownedEbook = next === "ebook" || next === "both";
+    const ownedAudiobook = next === "audiobook" || next === "both";
+    setBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, ownedEbook, ownedAudiobook } : b)));
+    try {
+      const res = await fetch(`/api/books/${book.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownedEbook, ownedAudiobook }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+    } catch (err) {
+      setNotice({ tone: "error", text: `Could not update "${book.title}". ${err instanceof Error ? err.message : ""}` });
+      loadAll();
     }
   }
 
@@ -853,27 +924,33 @@ export default function DashboardPage() {
                   {sec.items.map((b) => {
                 const tag = releaseTag(b.expectedReleaseDate, b.audiobookAvailable, b.hardcoverId !== null);
                 const isChecking = checking.has(b.id);
-                const hardcoverSources: SourceLink[] = b.hardcoverSlug
-                  ? [{ name: "Hardcover", url: `https://hardcover.app/books/${b.hardcoverSlug}` }]
-                  : [];
-                const audiobookSources: SourceLink[] = [
-                  ...(b.appleAudiobookUrl ? [{ name: "Apple Books (audiobook)", url: b.appleAudiobookUrl }] : []),
-                  ...hardcoverSources,
-                ];
+                const hardcoverUrl = b.hardcoverSlug ? `https://hardcover.app/books/${b.hardcoverSlug}` : null;
+                const audiobookUrl = b.appleAudiobookUrl ?? hardcoverUrl;
+                const owned = ownedState(b);
+                const OwnIcon = OWN_ICON[owned];
                 return (
                   <Card
                     key={b.id}
                     className={cn(
-                      "overflow-hidden shadow-none transition-shadow hover:shadow-md",
+                      "relative overflow-hidden shadow-none transition-shadow hover:shadow-md",
                       view === "grid" ? "flex flex-col" : "flex flex-row items-stretch",
                     )}
                   >
+                    <button
+                      type="button"
+                      onClick={() => cycleOwned(b)}
+                      title={OWN_LABEL[owned]}
+                      aria-label={OWN_LABEL[owned]}
+                      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent"
+                    >
+                      <OwnIcon className={cn("h-4 w-4", OWN_COLOR[owned])} />
+                    </button>
                     <div className={cn("flex min-w-0 flex-1 gap-4 p-4", view === "list" && "items-center py-3")}>
                       <Cover src={b.coverUrl} alt={b.title} className={view === "grid" ? "h-36 w-24" : "h-20 w-14"} />
 
                       <div className="flex min-w-0 flex-1 flex-col gap-2">
                         <div className="min-w-0">
-                          <h3 className="line-clamp-2 font-semibold leading-snug" title={b.title}>
+                          <h3 className="line-clamp-2 pr-9 font-semibold leading-snug" title={b.title}>
                             {b.title}
                           </h3>
                           <p className="truncate text-sm text-muted-foreground">{b.author}</p>
@@ -893,8 +970,8 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex flex-wrap gap-1.5">
-                          <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} sources={hardcoverSources} />
-                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} sources={audiobookSources} />
+                          <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} url={hardcoverUrl} />
+                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} />
                         </div>
 
                       </div>

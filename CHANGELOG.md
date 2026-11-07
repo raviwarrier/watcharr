@@ -3,6 +3,25 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.7.0] - 2026-11-07
+
+### Added
+- Library import (Settings > Import your library):
+  - Goodreads CSV export. Only books on the wishlist shelf (Exclusive Shelf = wishlist) are imported.
+  - Other CSV files. You choose the title, author, ISBN, and shelf columns.
+  - Your Hardcover "want to read" list, read through the API.
+- Imports run one book at a time in the background, with pauses on rate-limit errors. Books already on your watchlist are skipped.
+- A Gotify message when an import finishes, with the counts.
+- Download of the books that weren't found, as a CSV.
+- Acquisition button on each card (top right). It cycles: not owned, ebook, audiobook, both. The state is stored per book and doesn't change release status.
+
+### Changed
+- The import now uses any CSV with user-chosen columns (title, author, ISBN, tag), and the tag values to import. Goodreads files are detected automatically.
+- The Hardcover account import has been removed for now.
+
+### Fixed
+- The format pill menu no longer gets cut off by the card border. It shows Copy link and Open link, stacked, with no source name.
+
 ## [0.6.4] - 2026-11-07
 
 ### Fixed

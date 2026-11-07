@@ -31,6 +31,43 @@ if (process.env.NODE_ENV === "development") globalForDb.sqlite = sqlite;
 
 export const db = drizzle(sqlite, { schema });
 
+// Import tables. Created on startup so existing databases get them without a migration.
+// (drizzle-kit push isn't run on existing databases, see install.sh / install.ps1.)
+const IMPORT_TABLES = [
+  `CREATE TABLE IF NOT EXISTS import_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    file_name TEXT,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS import_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    isbn TEXT,
+    hardcover_id INTEGER,
+    status TEXT NOT NULL,
+    reason TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS import_items_job_status ON import_items (job_id, status, position)`,
+];
+for (const statement of IMPORT_TABLES) sqlite.prepare(statement).run();
+
+// Ownership columns on books. Added to existing databases on startup.
+const bookColumns = new Set(
+  (sqlite.prepare("pragma table_info(books)").all() as { name: string }[]).map((c) => c.name),
+);
+if (!bookColumns.has("owned_ebook")) {
+  sqlite.prepare("ALTER TABLE books ADD COLUMN owned_ebook integer NOT NULL DEFAULT 0").run();
+}
+if (!bookColumns.has("owned_audiobook")) {
+  sqlite.prepare("ALTER TABLE books ADD COLUMN owned_audiobook integer NOT NULL DEFAULT 0").run();
+}
+
 // ---------- Settings helpers ----------
 
 /**

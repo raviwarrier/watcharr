@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.10.1] - 2026-11-07
+
+### Fixed
+- Hardcover CSV imports: the Lists column is split into list names, and the `(#id)` part is dropped. Each list shows once, with its book count, and a book is picked up if it's on any chosen list.
+
 ## [0.10.0] - 2026-11-07
 
 ### Added

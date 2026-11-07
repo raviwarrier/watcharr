@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CautionZone } from "@/components/caution-zone";
 import { ImportSection } from "@/components/import-section";
+import { AuthorSettings } from "@/components/author-settings";
 import { ReconcileSection } from "@/components/reconcile-section";
 import { cn } from "@/lib/utils";
 import {
@@ -497,6 +498,8 @@ export default function SettingsPage() {
       <ReconcileSection />
 
       <ImportSection />
+
+      <AuthorSettings />
 
       <CautionZone />
     </div>

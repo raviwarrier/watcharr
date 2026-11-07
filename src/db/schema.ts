@@ -14,6 +14,8 @@ export const authorWatches = sqliteTable("author_watches", {
   hardcoverAuthorId: integer("hardcover_author_id").notNull().unique(),
   name: text("name").notNull(),
   lastSyncedAt: text("last_synced_at"),
+  // JSON array of Hardcover book ids already evaluated for this author. Null = never synced under the current rules.
+  knownBookIds: text("known_book_ids"),
   createdAt: text("created_at").notNull().$default(() => new Date().toISOString()),
 });
 

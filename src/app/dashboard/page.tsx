@@ -8,6 +8,7 @@ import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   BookOpen,
   CalendarClock,
@@ -131,6 +132,15 @@ const UPCOMING_SORTS: { value: SortKey; label: string }[] = [
   { value: "added", label: "Recently added" },
   { value: "title", label: "Title A–Z" },
   { value: "author", label: "Author A–Z" },
+];
+
+type AuthorSortKey = "author-asc" | "author-desc" | "closest" | "latest";
+
+const AUTHOR_SORTS: { value: AuthorSortKey; label: string }[] = [
+  { value: "author-asc", label: "Author A–Z" },
+  { value: "author-desc", label: "Author Z–A" },
+  { value: "closest", label: "Closest release" },
+  { value: "latest", label: "Furthest release" },
 ];
 
 const RELEASED_SORTS: { value: SortKey; label: string }[] = [
@@ -378,6 +388,123 @@ function Cover({ src, alt, className }: { src: string | null; alt: string; class
   );
 }
 
+/** One book card. Used in the Books tab and in the popup opened from an author's list. */
+function WatchCard({
+  b,
+  view,
+  checking,
+  onCycleOwned,
+  onRecheck,
+  onDelete,
+  onMatch,
+}: {
+  b: Book;
+  view: "grid" | "list";
+  checking: boolean;
+  onCycleOwned: (book: Book) => void;
+  onRecheck: (id: number) => void;
+  onDelete: (book: Book) => void;
+  onMatch: (book: Book) => void;
+}) {
+  const tag = releaseTag(b.expectedReleaseDate, b.audiobookAvailable, b.hardcoverId !== null);
+  const hardcoverUrl = b.hardcoverSlug ? `https://hardcover.app/books/${b.hardcoverSlug}` : null;
+  const audiobookUrl = b.appleAudiobookUrl ?? hardcoverUrl;
+  const owned = ownedState(b);
+  const OwnIcon = OWN_ICON[owned];
+  return (
+    <Card
+      className={cn(
+        "relative overflow-hidden shadow-none transition-shadow hover:shadow-md",
+        view === "grid" ? "flex flex-col" : "flex flex-row items-stretch",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onCycleOwned(b)}
+        title={OWN_LABEL[owned]}
+        aria-label={OWN_LABEL[owned]}
+        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent"
+      >
+        <OwnIcon className={cn("h-4 w-4", OWN_COLOR[owned])} />
+      </button>
+      <div className={cn("flex min-w-0 flex-1 gap-4 p-4", view === "list" && "items-center py-3")}>
+        <Cover src={b.coverUrl} alt={b.title} className={view === "grid" ? "h-36 w-24" : "h-20 w-14"} />
+
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="min-w-0">
+            <h3 className="line-clamp-2 pr-9 font-semibold leading-snug" title={b.title}>
+              {b.title}
+            </h3>
+            <p className="truncate text-sm text-muted-foreground">{b.author}</p>
+          </div>
+
+          <div className="flex flex-col items-start gap-1">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                TONE_CLASSES[tag.tone],
+              )}
+            >
+              <CalendarClock className="h-3 w-3" />
+              {tag.label}
+            </span>
+            {tag.detail && <span className="pl-1 text-xs text-muted-foreground">{tag.detail}</span>}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} url={hardcoverUrl} />
+            <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} appUrl={b.absItemUrl ?? null} />
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 px-4 py-3",
+          view === "grid" ? "border-t" : "shrink-0 flex-nowrap border-l",
+        )}
+      >
+        {b.hardcoverSlug ? (
+          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
+            <a href={`https://hardcover.app/books/${b.hardcoverSlug}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5" />
+              See details
+            </a>
+          </Button>
+        ) : b.hardcoverId === null ? (
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => onMatch(b)}>
+            Match on Hardcover
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            onClick={() => onRecheck(b.id)}
+            disabled={checking}
+            aria-label={`Re-check ${b.title}`}
+            title="Re-check"
+          >
+            <RefreshCw className={cn("h-4 w-4", checking && "animate-spin")} />
+          </Button>
+          <Button
+            size="icon"
+            onClick={() => onDelete(b)}
+            className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
+            aria-label={`Delete ${b.title}`}
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [authorWatches, setAuthorWatches] = useState<AuthorWatch[]>([]);
@@ -560,22 +687,37 @@ export default function DashboardPage() {
     await loadAll();
   }
 
-  async function syncAuthors() {
-    setPending((p) => new Set([...p, "sync"]));
-    setError(null);
+  /** Checks one author on Hardcover now, the same way the scheduled check does. */
+  async function recheckAuthor(w: AuthorWatch) {
+    setCheckingAuthors((p) => new Set([...p, w.id]));
+    setNotice(null);
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
+      const res = await fetch(`/api/author-watches/${w.id}/sync`, { method: "POST" });
       if (!res.ok) throw new Error(await readError(res));
+      const body = await res.json();
       await loadAll();
+      const added = Number(body.added ?? 0);
+      setNotice({
+        tone: "ok",
+        text: added === 0 ? `${w.name} is up to date.` : `${w.name}: ${added} new ${added === 1 ? "book" : "books"} added.`,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      setNotice({ tone: "error", text: err instanceof Error ? err.message : "Re-check failed" });
     } finally {
-      setPending((p) => {
+      setCheckingAuthors((p) => {
         const next = new Set(p);
-        next.delete("sync");
+        next.delete(w.id);
         return next;
       });
     }
+  }
+
+  /** Switches to the Books tab, filtered to this author's books. */
+  function seeAllBooks(w: AuthorWatch) {
+    setSection("books");
+    setFilter("all");
+    setQuery(w.name);
+    document.getElementById("books")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const watchedHardcoverIds = useMemo(
@@ -587,6 +729,11 @@ export default function DashboardPage() {
     [authorWatches],
   );
 
+  const [section, setSection] = useState<"books" | "authors">("books");
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [authorSort, setAuthorSort] = useState<AuthorSortKey>("author-asc");
+  const [openBookId, setOpenBookId] = useState<number | null>(null);
+  const [checkingAuthors, setCheckingAuthors] = useState<Set<number>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<Book | null>(null);
   const [pendingAuthor, setPendingAuthor] = useState<AuthorWatch | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -623,13 +770,46 @@ export default function DashboardPage() {
     return { sections, watchCounts };
   }, [books, query, filter, watchScope, upcomingSort, releasedSort]);
 
+  /**
+   * Author cards: each author's upcoming books (a future date, or TBD), sorted by date, plus the next release.
+   * Authors with nothing upcoming sort last when sorting by release date.
+   */
+  const authorCards = useMemo(() => {
+    const today = new Date().toLocaleDateString("en-CA");
+    const rows = authorWatches.map((w) => {
+      const upcoming = books
+        .filter((b) => b.authorWatchId === w.id && (!b.expectedReleaseDate || b.expectedReleaseDate >= today))
+        .sort((a, b) => {
+          if (!a.expectedReleaseDate && !b.expectedReleaseDate) return a.title.localeCompare(b.title);
+          if (!a.expectedReleaseDate) return 1;
+          if (!b.expectedReleaseDate) return -1;
+          return a.expectedReleaseDate.localeCompare(b.expectedReleaseDate) || a.title.localeCompare(b.title);
+        });
+      const nextDate = upcoming[0]?.expectedReleaseDate ?? null;
+      return { w, upcoming, nextDate };
+    });
+    const q = authorQuery.trim().toLowerCase();
+    return rows
+      .filter((r) => !q || r.w.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (authorSort === "author-asc") return a.w.name.localeCompare(b.w.name);
+        if (authorSort === "author-desc") return b.w.name.localeCompare(a.w.name);
+        // Dated authors first, TBD or nothing last, in both directions.
+        if (!a.nextDate && !b.nextDate) return a.w.name.localeCompare(b.w.name);
+        if (!a.nextDate) return 1;
+        if (!b.nextDate) return -1;
+        const diff = a.nextDate.localeCompare(b.nextDate);
+        return (authorSort === "latest" ? -diff : diff) || a.w.name.localeCompare(b.w.name);
+      });
+  }, [authorWatches, books, authorQuery, authorSort]);
+
+  const openBook = openBookId !== null ? books.find((b) => b.id === openBookId) ?? null : null;
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Watchlist</h1>
-        <p className="text-muted-foreground">
-          Find a book or an author, then pick what to watch. Release dates come from Hardcover.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">Search</h1>
+        <p className="text-muted-foreground">Find a book or author to track</p>
       </div>
 
       {error && (
@@ -685,7 +865,7 @@ export default function DashboardPage() {
           <div className="flex flex-1 items-center gap-2 px-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <ClearableInput
-              placeholder="Title (optional)"
+              placeholder="Titles to watch for"
               value={title}
               onChange={setTitle}
               wrapperClassName="flex-1"
@@ -696,7 +876,7 @@ export default function DashboardPage() {
           <div className="flex flex-1 items-center gap-2 px-2">
             <User className="h-4 w-4 shrink-0 text-muted-foreground" />
             <ClearableInput
-              placeholder="Author (optional)"
+              placeholder="Authors to watch for"
               value={author}
               onChange={setAuthor}
               wrapperClassName="flex-1"
@@ -711,6 +891,29 @@ export default function DashboardPage() {
         <p className="px-1 text-xs text-muted-foreground">
           Fill in either field, or both. An author alone lets you watch all of their upcoming books.
         </p>
+
+        <div id="books" className="scroll-mt-20" />
+        <div role="tablist" aria-label="Watchlist sections" className="inline-flex w-fit gap-1 rounded-lg border bg-card p-1">
+          {(
+            [
+              { value: "books", label: "Books", count: books.length },
+              { value: "authors", label: "Authors", count: authorWatches.length },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.value}
+              role="tab"
+              aria-selected={section === t.value}
+              onClick={() => setSection(t.value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                section === t.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              {t.label} <span className="tabular-nums opacity-70">{t.count}</span>
+            </button>
+          ))}
+        </div>
 
         {results && (
           <div className="grid gap-4 lg:grid-cols-2">
@@ -811,7 +1014,114 @@ export default function DashboardPage() {
             <div key={i} className="h-28 animate-pulse rounded-xl border bg-muted/50" />
           ))}
         </div>
-      ) : books.length === 0 && authorWatches.length === 0 ? (
+      ) : section === "authors" ? (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <ClearableInput
+                placeholder="Search authors"
+                value={authorQuery}
+                onChange={setAuthorQuery}
+                className="pl-9"
+                aria-label="Search authors"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Sort
+              <select
+                value={authorSort}
+                onChange={(e) => setAuthorSort(e.target.value as AuthorSortKey)}
+                className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
+              >
+                {AUTHOR_SORTS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {authorWatches.length === 0 ? (
+            <Card className="border-dashed shadow-none">
+              <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
+                  <User className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">You aren&apos;t watching any authors yet</p>
+                  <p className="text-sm text-muted-foreground">Search above to find an author to follow.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : authorCards.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No matches.</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {authorCards.map(({ w, upcoming }) => (
+                <Card key={w.id} className="flex flex-col overflow-hidden shadow-none transition-shadow hover:shadow-md">
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold" title={w.name}>
+                        {w.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {upcoming.length === 0 ? "No upcoming books" : `${upcoming.length} upcoming`}
+                      </p>
+                    </div>
+                    {upcoming.length > 0 && (
+                      <ul className="flex flex-col">
+                        {upcoming.map((b) => (
+                          <li key={b.id}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenBookId(b.id)}
+                              className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                            >
+                              <span className="min-w-0 truncate">{b.title}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {b.expectedReleaseDate ? formatDate(b.expectedReleaseDate) : "TBD"}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => seeAllBooks(w)}>
+                      See all books
+                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        onClick={() => recheckAuthor(w)}
+                        disabled={checkingAuthors.has(w.id)}
+                        aria-label={`Re-check ${w.name}`}
+                        title="Re-check"
+                      >
+                        <RefreshCw className={cn("h-4 w-4", checkingAuthors.has(w.id) && "animate-spin")} />
+                      </Button>
+                      <Button
+                        size="icon"
+                        onClick={() => setPendingAuthor(w)}
+                        className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
+                        aria-label={`Remove author ${w.name}`}
+                        title="Remove author"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : books.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
@@ -825,42 +1135,6 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <>
-          {authorWatches.length > 0 && (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Watched authors</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={syncAuthors}
-                  disabled={pending.has("sync")}
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", pending.has("sync") && "animate-spin")} />
-                  Refresh authors
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {authorWatches.map((w) => (
-                  <span
-                    key={w.id}
-                    className="inline-flex items-center gap-2 rounded-full border bg-card py-1 pl-3 pr-1 text-sm"
-                  >
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    {w.name}
-                    <button
-                      onClick={() => setPendingAuthor(w)}
-                      className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      aria-label={`Stop watching ${w.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div role="tablist" aria-label="Filter books" className="inline-flex w-fit gap-1 rounded-lg border bg-card p-1">
@@ -973,114 +1247,48 @@ export default function DashboardPage() {
                       {query.trim() ? "No matches." : sec.key === "upcoming" ? "Nothing on your watchlist right now." : "Nothing released yet."}
                     </p>
                   )}
-                  {sec.items.map((b) => {
-                const tag = releaseTag(b.expectedReleaseDate, b.audiobookAvailable, b.hardcoverId !== null);
-                const isChecking = checking.has(b.id);
-                const hardcoverUrl = b.hardcoverSlug ? `https://hardcover.app/books/${b.hardcoverSlug}` : null;
-                const audiobookUrl = b.appleAudiobookUrl ?? hardcoverUrl;
-                const owned = ownedState(b);
-                const OwnIcon = OWN_ICON[owned];
-                return (
-                  <Card
-                    key={b.id}
-                    className={cn(
-                      "relative overflow-hidden shadow-none transition-shadow hover:shadow-md",
-                      view === "grid" ? "flex flex-col" : "flex flex-row items-stretch",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => cycleOwned(b)}
-                      title={OWN_LABEL[owned]}
-                      aria-label={OWN_LABEL[owned]}
-                      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent"
-                    >
-                      <OwnIcon className={cn("h-4 w-4", OWN_COLOR[owned])} />
-                    </button>
-                    <div className={cn("flex min-w-0 flex-1 gap-4 p-4", view === "list" && "items-center py-3")}>
-                      <Cover src={b.coverUrl} alt={b.title} className={view === "grid" ? "h-36 w-24" : "h-20 w-14"} />
-
-                      <div className="flex min-w-0 flex-1 flex-col gap-2">
-                        <div className="min-w-0">
-                          <h3 className="line-clamp-2 pr-9 font-semibold leading-snug" title={b.title}>
-                            {b.title}
-                          </h3>
-                          <p className="truncate text-sm text-muted-foreground">{b.author}</p>
-                        </div>
-
-                        <div className="flex flex-col items-start gap-1">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                              TONE_CLASSES[tag.tone],
-                            )}
-                          >
-                            <CalendarClock className="h-3 w-3" />
-                            {tag.label}
-                          </span>
-                          {tag.detail && <span className="pl-1 text-xs text-muted-foreground">{tag.detail}</span>}
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5">
-                          <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} url={hardcoverUrl} />
-                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} appUrl={b.absItemUrl ?? null} />
-                        </div>
-
-                      </div>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "flex items-center justify-between gap-2 px-4 py-3",
-                        view === "grid" ? "border-t" : "shrink-0 flex-nowrap border-l",
-                      )}
-                    >
-                      {b.hardcoverSlug ? (
-                        <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
-                          <a href={`https://hardcover.app/books/${b.hardcoverSlug}`} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            See details
-                          </a>
-                        </Button>
-                      ) : b.hardcoverId === null ? (
-                        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => startMatch(b)}>
-                          Match on Hardcover
-                        </Button>
-                      ) : (
-                        <span />
-                      )}
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="h-8 w-8"
-                          onClick={() => recheck(b.id)}
-                          disabled={isChecking}
-                          aria-label={`Re-check ${b.title}`}
-                          title="Re-check"
-                        >
-                          <RefreshCw className={cn("h-4 w-4", isChecking && "animate-spin")} />
-                        </Button>
-                        <Button
-                          size="icon"
-                          onClick={() => setPendingDelete(b)}
-                          className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
-                          aria-label={`Delete ${b.title}`}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                );
-                  })}
+                  {sec.items.map((b) => (
+                    <WatchCard
+                      key={b.id}
+                      b={b}
+                      view={view}
+                      checking={checking.has(b.id)}
+                      onCycleOwned={cycleOwned}
+                      onRecheck={recheck}
+                      onDelete={setPendingDelete}
+                      onMatch={startMatch}
+                    />
+                  ))}
                 </Fragment>
               ))}
             </div>
           </section>
         </>
       )}
+
+      {/* Popup for a title picked from an author card: the same card as the Books tab. */}
+      <Dialog open={openBook !== null} onOpenChange={(open) => !open && setOpenBookId(null)}>
+        <DialogContent className="max-w-sm p-0">
+          <DialogTitle className="sr-only">{openBook?.title ?? "Book"}</DialogTitle>
+          {openBook && (
+            <WatchCard
+              b={openBook}
+              view="grid"
+              checking={checking.has(openBook.id)}
+              onCycleOwned={cycleOwned}
+              onRecheck={recheck}
+              onDelete={(book) => {
+                setOpenBookId(null);
+                setPendingDelete(book);
+              }}
+              onMatch={(book) => {
+                setOpenBookId(null);
+                startMatch(book);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingDelete !== null}
@@ -1103,7 +1311,7 @@ export default function DashboardPage() {
         open={pendingAuthor !== null}
         onOpenChange={(open) => !open && setPendingAuthor(null)}
         title="Stop watching this author?"
-        description={`Their upcoming books that were added through "${pendingAuthor?.name ?? ""}" will be removed from your watchlist.`}
+        description={`Books that were added through "${pendingAuthor?.name ?? ""}" will be removed from your watchlist.`}
         confirmLabel="Stop watching"
         busy={deleting}
         onConfirm={async () => {

@@ -60,20 +60,24 @@ for (const statement of IMPORT_TABLES) sqlite.prepare(statement).run();
 // Ownership and match columns on books. Added to existing databases on startup.
 // Each column re-reads the table, and a duplicate-column error counts as done. Several
 // processes can load this module at once (for example, the build's worker pool).
-function addBookColumn(column: string, definition: string): void {
+function addColumn(table: "books" | "author_watches", column: string, definition: string): void {
   const existing = new Set(
-    (sqlite.prepare("pragma table_info(books)").all() as { name: string }[]).map((c) => c.name),
+    (sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map((c) => c.name),
   );
   if (existing.has(column)) return;
   try {
-    sqlite.prepare(`ALTER TABLE books ADD COLUMN ${column} ${definition}`).run();
+    sqlite.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
   } catch (err) {
     if (!(err instanceof Error && /duplicate column name/i.test(err.message))) throw err;
   }
 }
+function addBookColumn(column: string, definition: string): void {
+  addColumn("books", column, definition);
+}
 addBookColumn("owned_ebook", "integer NOT NULL DEFAULT 0");
 addBookColumn("owned_audiobook", "integer NOT NULL DEFAULT 0");
 addBookColumn("audiobook_release_date", "text");
+addColumn("author_watches", "known_book_ids", "text");
 // Audiobookshelf and Calibre match columns.
 for (const [column, type] of [["abs_item_id", "text"], ["abs_match", "text"], ["abs_checked_at", "text"], ["abs_title", "text"], ["abs_author", "text"], ["cal_book_id", "integer"], ["cal_match", "text"], ["cal_title", "text"], ["cal_author", "text"], ["cal_checked_at", "text"]] as const) {
   addBookColumn(column, type);

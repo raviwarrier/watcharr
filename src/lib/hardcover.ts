@@ -232,16 +232,18 @@ export async function getBookDetail(hardcoverId: number): Promise<BookDetail | n
   };
 }
 
-/** Upcoming (not-yet-released) books by one author. UNVERIFIED filter syntax. */
-export async function getAuthorUpcomingBooks(hardcoverAuthorId: number): Promise<BookDetail[]> {
-  const today = new Date().toISOString().slice(0, 10);
+/**
+ * Every book by one author on Hardcover, including ones with no release date yet.
+ * The caller decides which of them go on the watchlist. UNVERIFIED filter syntax.
+ */
+export async function getAuthorBooks(hardcoverAuthorId: number): Promise<BookDetail[]> {
   const data = await hardcoverGraphQL<any>(
     `
-    query AuthorUpcoming($authorId: Int!, $today: date!) {
+    query AuthorBooks($authorId: Int!) {
       books(
-        where: { contributions: { author_id: { _eq: $authorId } }, release_date: { _gte: $today } }
+        where: { contributions: { author_id: { _eq: $authorId } } }
         order_by: { release_date: asc }
-        limit: 100
+        limit: 200
       ) {
         id
         title
@@ -252,7 +254,7 @@ export async function getAuthorUpcomingBooks(hardcoverAuthorId: number): Promise
       }
     }
     `,
-    { authorId: hardcoverAuthorId, today },
+    { authorId: hardcoverAuthorId },
   );
 
   return (data.books ?? []).map((b: any) => ({

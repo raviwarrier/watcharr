@@ -3,6 +3,19 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.15.0] - 2026-11-07
+
+### Added
+- Authors tab. Each watched author shows their upcoming books (a date, or TBD), with See all books, Re-check, and Remove author. Click a title to open its card.
+- Authors can be searched and sorted by name, or by next release.
+- Settings > Authors: add books with a TBD date (on by default), and include books already out when you start watching an author (off by default).
+
+### Changed
+- Watching an author adds all of their books on Hardcover that are new, including ones with no date yet. Previously only books with a future date were added.
+- Authors are checked on the same schedule as your books.
+- The search fields say "Titles to watch for" and "Authors to watch for". The top heading is Search.
+- The Books and Authors tabs sit below the search bar.
+
 ## [0.14.0] - 2026-11-07
 
 ### Added

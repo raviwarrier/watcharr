@@ -1,6 +1,7 @@
 import { getSetting, setSetting } from "@/lib/db";
 import { getAlertFlag, getRecheckInterval, RECHECK_INTERVALS } from "@/lib/prefs";
 import { recheckAllLinked } from "@/lib/recheck";
+import { syncAllAuthorWatches } from "@/lib/watch";
 import { sendGotify } from "@/lib/gotify";
 import { importTick, IMPORT_TICK_MS } from "@/lib/importer";
 
@@ -44,6 +45,8 @@ export async function maybeRunScheduledRecheck(now = Date.now()): Promise<"busy"
     // Record the start first, so a slow run can't trigger a second one.
     await setSetting("lastAutoCheckAt", new Date(now).toISOString());
     const summary = await recheckAllLinked();
+    // Authors are checked on the same schedule as the books. A failure here doesn't stop the book check.
+    await syncAllAuthorWatches().catch((err) => console.error("[scheduler] author check failed:", err));
 
     if (await getAlertFlag("alertScheduled")) {
       try {

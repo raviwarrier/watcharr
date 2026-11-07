@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Sets the theme class before first paint, so the page never flashes the wrong theme. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=localStorage.getItem('theme');var d=m==='dark'||((m!=='light')&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.classList.toggle('light',!d);}catch(e){}})();`,
+            __html: `(function(){try{var m=localStorage.getItem('theme');var d=m==='system'?window.matchMedia('(prefers-color-scheme: dark)').matches:m!=='light';document.documentElement.classList.toggle('dark',d);document.documentElement.classList.toggle('light',!d);}catch(e){}})();`,
           }}
         />
       </head>

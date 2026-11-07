@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.16.3] - 2026-11-07
+
+### Changed
+- Dark is the default theme. Choose System in the theme menu to follow your device.
+
 ## [0.16.2] - 2026-11-07
 
 ### Changed

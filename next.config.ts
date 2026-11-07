@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Hide the Next.js dev badge (bottom left). Errors still show in development.
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {

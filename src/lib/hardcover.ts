@@ -38,6 +38,11 @@ export interface BookDetail {
   authors: string[];
   coverUrl: string | null; // audiobook edition cover when available, else the book cover
   releaseDate: string | null; // YYYY-MM-DD
+  /**
+   * Earliest release date among the audiobook editions. Null when no audio edition has a date.
+   * Undefined when this lookup didn't fetch editions, so the stored value is left alone.
+   */
+  audiobookReleaseDate?: string | null;
   /** Distinct reading_format values across the book's editions, e.g. ["audio", "digital", "physical"]. */
   formats: string[];
 }
@@ -172,7 +177,7 @@ export async function searchCandidates(
 
 /** Full details for one book, with the audiobook edition cover preferred. */
 export async function getBookDetail(hardcoverId: number): Promise<BookDetail | null> {
-  // UNVERIFIED: `image { url }` on books and editions, and `slug` on books.
+  // UNVERIFIED: `image { url }` on books and editions, `slug` on books, and `release_date` on editions.
   const data = await hardcoverGraphQL<any>(
     `
     query BookDetail($id: Int!) {
@@ -185,6 +190,7 @@ export async function getBookDetail(hardcoverId: number): Promise<BookDetail | n
         contributions { author { name } }
         editions(order_by: { users_count: desc }, limit: 50) {
           reading_format { format }
+          release_date
           image { url }
         }
       }
@@ -208,6 +214,12 @@ export async function getBookDetail(hardcoverId: number): Promise<BookDetail | n
     ),
   ] as string[];
 
+  // The earliest date among audio editions. Print and ebook dates don't count as an audiobook date.
+  const audioDates = (b.editions ?? [])
+    .filter((e: any) => isAudioFormat(e?.reading_format?.format) && typeof e?.release_date === "string")
+    .map((e: any) => e.release_date as string)
+    .sort();
+
   return {
     hardcoverId: Number(b.id),
     title: b.title,
@@ -215,6 +227,7 @@ export async function getBookDetail(hardcoverId: number): Promise<BookDetail | n
     authors: (b.contributions ?? []).map((c: any) => c.author?.name).filter(Boolean),
     coverUrl: audioEdition?.image?.url ?? b.image?.url ?? null,
     releaseDate: b.release_date ?? null,
+    audiobookReleaseDate: audioDates[0] ?? null,
     formats,
   };
 }

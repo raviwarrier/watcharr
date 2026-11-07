@@ -57,19 +57,26 @@ const IMPORT_TABLES = [
 ];
 for (const statement of IMPORT_TABLES) sqlite.prepare(statement).run();
 
-// Ownership columns on books. Added to existing databases on startup.
-const bookColumns = new Set(
-  (sqlite.prepare("pragma table_info(books)").all() as { name: string }[]).map((c) => c.name),
-);
-if (!bookColumns.has("owned_ebook")) {
-  sqlite.prepare("ALTER TABLE books ADD COLUMN owned_ebook integer NOT NULL DEFAULT 0").run();
+// Ownership and match columns on books. Added to existing databases on startup.
+// Each column re-reads the table, and a duplicate-column error counts as done. Several
+// processes can load this module at once (for example, the build's worker pool).
+function addBookColumn(column: string, definition: string): void {
+  const existing = new Set(
+    (sqlite.prepare("pragma table_info(books)").all() as { name: string }[]).map((c) => c.name),
+  );
+  if (existing.has(column)) return;
+  try {
+    sqlite.prepare(`ALTER TABLE books ADD COLUMN ${column} ${definition}`).run();
+  } catch (err) {
+    if (!(err instanceof Error && /duplicate column name/i.test(err.message))) throw err;
+  }
 }
-if (!bookColumns.has("owned_audiobook")) {
-  sqlite.prepare("ALTER TABLE books ADD COLUMN owned_audiobook integer NOT NULL DEFAULT 0").run();
-}
-// Audiobookshelf match columns.
-for (const [column, type] of [["abs_item_id", "text"], ["abs_match", "text"], ["abs_checked_at", "text"], ["abs_title", "text"], ["abs_author", "text"]] as const) {
-  if (!bookColumns.has(column)) sqlite.prepare(`ALTER TABLE books ADD COLUMN ${column} ${type}`).run();
+addBookColumn("owned_ebook", "integer NOT NULL DEFAULT 0");
+addBookColumn("owned_audiobook", "integer NOT NULL DEFAULT 0");
+addBookColumn("audiobook_release_date", "text");
+// Audiobookshelf and Calibre match columns.
+for (const [column, type] of [["abs_item_id", "text"], ["abs_match", "text"], ["abs_checked_at", "text"], ["abs_title", "text"], ["abs_author", "text"], ["cal_book_id", "integer"], ["cal_match", "text"], ["cal_title", "text"], ["cal_author", "text"], ["cal_checked_at", "text"]] as const) {
+  addBookColumn(column, type);
 }
 
 // ---------- Settings helpers ----------

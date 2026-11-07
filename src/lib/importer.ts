@@ -5,6 +5,7 @@ import { sendGotify } from "@/lib/gotify";
 import { readCsvObjects, writeCsv } from "@/lib/csv";
 import { firstAuthor, surname, titleBase } from "@/lib/match";
 import { absSettings, reconcileBook } from "@/lib/reconcile";
+import { hasCalibreCopy, reconcileCalibreBook } from "@/lib/calibre";
 import { getSettingSync } from "@/lib/db";
 
 /**
@@ -55,15 +56,39 @@ export interface PreparedRow {
   isbn: string;
 }
 
-/** Applies a mapping to CSV rows and keeps only rows whose tag is one of the chosen values. */
+/**
+ * The list names in one tag cell. Hardcover writes several lists as "Nonfiction (#243), Philosophy (#25)",
+ * where (#n) is an internal id that isn't part of the name. Plain comma lists (e.g. "read") also work.
+ * Names are returned once each, ignoring case.
+ */
+export function listNames(cell: string): string[] {
+  const names: string[] = [];
+  if (/\(#\d+\)/.test(cell)) {
+    for (const m of cell.matchAll(/(.+?)\s*\(#\d+\)/g)) names.push(m[1].replace(/^[,\s]+/, "").trim());
+  } else {
+    names.push(...cell.split(","));
+  }
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const name of names) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(name.trim());
+  }
+  return unique;
+}
+
+/** Applies a mapping to CSV rows and keeps only rows with at least one of the chosen tags. */
 export function rowsFromCsv(text: string, mapping: Mapping): { rows: PreparedRow[]; totalRows: number; noTitle: number } {
   const { rows } = readCsvObjects(text);
   let noTitle = 0;
   const kept: PreparedRow[] = [];
+  const wanted = new Set((mapping.tagValues ?? []).map((v) => v.trim().toLowerCase()));
   for (const row of rows) {
-    if (mapping.tag && mapping.tagValues && mapping.tagValues.length > 0) {
-      const value = (row[mapping.tag] ?? "").trim().toLowerCase();
-      if (!mapping.tagValues.some((v) => v.trim().toLowerCase() === value)) continue;
+    if (mapping.tag && wanted.size > 0) {
+      const tags = listNames(row[mapping.tag] ?? "").map((n) => n.toLowerCase());
+      if (!tags.some((t) => wanted.has(t))) continue;
     }
     const title = (row[mapping.title] ?? "").trim();
     if (!title) {
@@ -79,16 +104,19 @@ export function rowsFromCsv(text: string, mapping: Mapping): { rows: PreparedRow
   return { rows: kept, totalRows: rows.length, noTitle };
 }
 
-/** Distinct values in the tag column, with how many rows have each, most common first. */
+/** Distinct tag names in the tag column, with how many rows have each, most common first. */
 export function tagValueCounts(text: string, column: string): { value: string; count: number }[] {
   const { rows } = readCsvObjects(text);
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { value: string; count: number }>();
   for (const row of rows) {
-    const value = (row[column] ?? "").trim();
-    if (!value) continue;
-    counts.set(value, (counts.get(value) ?? 0) + 1);
+    for (const name of listNames(row[column] ?? "")) {
+      const key = name.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) entry.count++;
+      else counts.set(key, { value: name, count: 1 });
+    }
   }
-  return [...counts.entries()].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
 
 /* ------------------------------------------------------------ jobs */
@@ -247,6 +275,10 @@ async function processItem(item: ItemRow): Promise<void> {
     // A failure here does not affect the import.
     if (getSettingSync("reconcileAudiobooks") !== "false" && absSettings()) {
       await reconcileBook(result.book.id).catch(() => undefined);
+    }
+    // Same for ebooks, from the uploaded Calibre copy. On by default.
+    if (getSettingSync("reconcileEbooks") !== "false" && hasCalibreCopy()) {
+      await reconcileCalibreBook(result.book.id).catch(() => undefined);
     }
   }
 }

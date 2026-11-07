@@ -3,6 +3,42 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.14.0] - 2026-11-07
+
+### Added
+- Watchlist has an All / Upcoming switch. Upcoming shows only books with a release date today or later.
+
+## [0.13.0] - 2026-11-07
+
+### Added
+- An X button clears the title, author, and search fields on the dashboard, the watchlist search, and the review search.
+
+## [0.12.0] - 2026-11-07
+
+### Changed
+- The calendar feed uses the expected release date for books that aren't out yet and have no audiobook date, since audiobooks usually come out the same day. Once a book is out, only its audiobook date counts.
+
+## [0.11.0] - 2026-11-07
+
+### Changed
+- The calendar feed (`calendar.ics`) lists only audiobook releases with a known date from today on. Books with no audiobook date, such as older books never released as audiobooks, are left out. Previously it listed every book with any publication date.
+- Watcharr now reads each audiobook edition's release date from Hardcover. Print and ebook dates are no longer used for the calendar.
+
+### Note
+- Books added before this version get their audiobook date on the next re-check. Until then they're missing from the calendar.
+
+## [0.10.1] - 2026-11-07
+
+### Fixed
+- Hardcover CSV imports: the Lists column is split into list names, and the `(#id)` part is dropped. Each list shows once, with its book count, and a book is picked up if it's on any chosen list.
+
+## [0.10.0] - 2026-11-07
+
+### Added
+- Calibre in Reconciling libraries. Upload a copy of your Calibre `metadata.db` and Watcharr marks books you already have as owned ebooks. Only the book list is read, and your Calibre files are never changed. Title-only matches go to the same review list as Audiobookshelf.
+- "Reconcile ebooks" toggle in Import (on by default). Books added by import are checked against the uploaded Calibre copy.
+- A book owned as both an ebook and an audiobook shows the "both" icon.
+
 ## [0.9.0] - 2026-11-07
 
 ### Added

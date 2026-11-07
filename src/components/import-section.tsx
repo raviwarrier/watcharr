@@ -47,6 +47,8 @@ export function ImportSection() {
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   // After each book is added, check Audiobookshelf and mark it as owned. On by default.
   const [reconcileAudio, setReconcileAudio] = useState(true);
+  // Same for ebooks, from the uploaded Calibre copy. On by default.
+  const [reconcileEbook, setReconcileEbook] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -55,6 +57,8 @@ export function ImportSection() {
       .then((rows: { key: string; masked: string | null }[]) => {
         const row = rows.find((r) => r.key === "reconcileAudiobooks");
         if (active && row?.masked) setReconcileAudio(row.masked !== "false");
+        const ebook = rows.find((r) => r.key === "reconcileEbooks");
+        if (active && ebook?.masked) setReconcileEbook(ebook.masked !== "false");
       })
       .catch(() => {});
     fetch("/api/import/jobs", { cache: "no-store" })
@@ -197,11 +201,24 @@ export function ImportSection() {
               <span className="block text-muted-foreground">Check Audiobookshelf and mark the book as owned if it&apos;s already in your library. Needs Audiobookshelf connected in Reconciling libraries.</span>
             </span>
           </label>
-          <label className="flex items-start gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" className="mt-1" disabled />
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={reconcileEbook}
+              onChange={async (e) => {
+                const next = e.target.checked;
+                setReconcileEbook(next);
+                await fetch("/api/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ key: "reconcileEbooks", value: next ? "true" : "false" }),
+                });
+              }}
+            />
             <span>
-              <span className="block font-medium">Reconcile ebooks (coming later)</span>
-              <span className="block">Calibre support is planned.</span>
+              <span className="block font-medium">Reconcile ebooks</span>
+              <span className="block text-muted-foreground">Check your uploaded Calibre library and mark the book as owned as an ebook if it&apos;s already there. Needs a Calibre file uploaded in Reconciling libraries.</span>
             </span>
           </label>
         </div>

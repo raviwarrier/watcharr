@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExt
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -593,27 +593,35 @@ export default function DashboardPage() {
   const view = useSyncExternalStore(subscribeView, getView, getServerView);
   const [filter, setFilter] = useState<"all" | "upcoming" | "released">("all");
   const [query, setQuery] = useState("");
+  // Watchlist scope: every book on the watchlist, or only those with a future release date.
+  const [watchScope, setWatchScope] = useState<"all" | "future">("all");
   const [upcomingSort, setUpcomingSort] = useState<SortKey>("closest");
   const [releasedSort, setReleasedSort] = useState<SortKey>("recent");
 
-  const sections = useMemo(() => {
+  const { sections, watchCounts } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matches = (b: Book) =>
       !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
     // A book counts as "released" for this app once an audiobook is available.
     // Released = an audiobook is available or owned (marked by hand, or found by reconciliation).
     const released = (b: Book) => b.audiobookAvailable === true || b.ownedAudiobook === true;
-    const upcoming = books
-      .filter((b) => !released(b) && matches(b))
+    // "Future" = the expected release date is today or later (local date).
+    const today = new Date().toLocaleDateString("en-CA");
+    const future = (b: Book) => !!b.expectedReleaseDate && b.expectedReleaseDate >= today;
+    const waiting = books.filter((b) => !released(b));
+    const upcoming = waiting
+      .filter((b) => matches(b) && (watchScope === "all" || future(b)))
       .sort((a, b) => compareBooks(upcomingSort, a, b));
     const done = books
       .filter((b) => released(b) && matches(b))
       .sort((a, b) => compareBooks(releasedSort, a, b));
-    return [
+    const watchCounts = { all: waiting.length, future: waiting.filter(future).length };
+    const sections = [
       { key: "upcoming" as const, title: "Watchlist", items: upcoming, sort: upcomingSort, setSort: setUpcomingSort, options: UPCOMING_SORTS },
       { key: "released" as const, title: "Released", items: done, sort: releasedSort, setSort: setReleasedSort, options: RELEASED_SORTS },
     ].filter((s) => filter === "all" || filter === s.key);
-  }, [books, query, filter, upcomingSort, releasedSort]);
+    return { sections, watchCounts };
+  }, [books, query, filter, watchScope, upcomingSort, releasedSort]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
@@ -676,20 +684,22 @@ export default function DashboardPage() {
         >
           <div className="flex flex-1 items-center gap-2 px-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <Input
+            <ClearableInput
               placeholder="Title (optional)"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={setTitle}
+              wrapperClassName="flex-1"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
           </div>
           <div className="hidden h-6 w-px bg-border sm:block" />
           <div className="flex flex-1 items-center gap-2 px-2">
             <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <Input
+            <ClearableInput
               placeholder="Author (optional)"
               value={author}
-              onChange={(e) => setAuthor(e.target.value)}
+              onChange={setAuthor}
+              wrapperClassName="flex-1"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
           </div>
@@ -875,13 +885,36 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
+              {filter !== "released" && (
+                <div role="tablist" aria-label="Watchlist dates" className="inline-flex w-fit gap-1 rounded-lg border bg-card p-1">
+                  {(
+                    [
+                      { value: "all", label: "All", count: watchCounts.all },
+                      { value: "future", label: "Upcoming", count: watchCounts.future },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.value}
+                      role="tab"
+                      aria-selected={watchScope === t.value}
+                      onClick={() => setWatchScope(t.value)}
+                      className={cn(
+                        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                        watchScope === t.value ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      )}
+                    >
+                      {t.label} <span className="tabular-nums opacity-70">{t.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-2 sm:w-[28rem]">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <ClearableInput
                   placeholder="Search title or author"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={setQuery}
                   className="pl-9"
                   aria-label="Search watchlist"
                 />

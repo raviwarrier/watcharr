@@ -4,32 +4,39 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 
+export type ReviewSource = "abs" | "calibre";
+
+const SOURCE_NAME: Record<ReviewSource, string> = { abs: "Audiobookshelf", calibre: "Calibre" };
+
+/** One row, in the same shape for both sources. */
 type ReviewItem = {
   bookId: number;
   title: string;
   author: string;
-  absTitle: string | null;
-  absAuthor: string | null;
-  absItemUrl: string | null;
+  matchTitle: string | null;
+  matchAuthor: string | null;
+  matchUrl: string | null;
 };
 
 const PAGE_SIZE = 20;
 
 /**
- * Review of Audiobookshelf matches that were found by title only. Built for long lists:
- * paged, searchable, and with bulk actions. Each decision is saved immediately.
+ * Review of matches found by title only. Built for long lists: paged, searchable, with bulk actions.
+ * Each decision is saved immediately.
  */
 export function ReviewDialog({
   open,
   onOpenChange,
   onChanged,
+  source,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChanged: () => void;
+  source: ReviewSource;
 }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -40,6 +47,8 @@ export function ReviewDialog({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const name = SOURCE_NAME[source];
+  const base = `/api/reconcile/${source}/review`;
 
   // Debounce the search box, and go back to the first page when it changes.
   useEffect(() => {
@@ -50,12 +59,32 @@ export function ReviewDialog({
     return () => clearTimeout(timer);
   }, [query]);
 
-  /** Fetches one page. Updates state only when the request finishes, so it can run from an effect. */
+  /** Fetches one page and maps it to the shared row shape. */
   async function fetchPage(pageIndex: number, term: string): Promise<{ total: number; items: ReviewItem[] }> {
     const params = new URLSearchParams({ offset: String(pageIndex * PAGE_SIZE), limit: String(PAGE_SIZE), q: term });
-    const res = await fetch(`/api/reconcile/abs/review?${params}`, { cache: "no-store" });
+    const res = await fetch(`${base}?${params}`, { cache: "no-store" });
     if (!res.ok) throw new Error("Could not load the matches to review.");
-    return res.json();
+    const body = await res.json();
+    const rows: ReviewItem[] = (body.items as Record<string, unknown>[]).map((r) =>
+      source === "abs"
+        ? {
+            bookId: Number(r.bookId),
+            title: String(r.title),
+            author: String(r.author ?? ""),
+            matchTitle: (r.absTitle as string | null) ?? null,
+            matchAuthor: (r.absAuthor as string | null) ?? null,
+            matchUrl: (r.absItemUrl as string | null) ?? null,
+          }
+        : {
+            bookId: Number(r.bookId),
+            title: String(r.title),
+            author: String(r.author ?? ""),
+            matchTitle: (r.calibreTitle as string | null) ?? null,
+            matchAuthor: (r.calibreAuthor as string | null) ?? null,
+            matchUrl: null,
+          },
+    );
+    return { total: Number(body.total), items: rows };
   }
 
   // Load when the dialog opens, and when the page or search changes.
@@ -78,6 +107,8 @@ export function ReviewDialog({
     return () => {
       active = false;
     };
+    // The dialog is mounted once per source, so fetchPage doesn't need to be a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, page, search]);
 
   /** Reloads the current page after a decision (from an event, so it may update state directly). */
@@ -99,7 +130,7 @@ export function ReviewDialog({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/reconcile/abs/review/decide", {
+      const res = await fetch(`${base}/decide`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookIds: ids, decision }),
@@ -153,14 +184,14 @@ export function ReviewDialog({
       }}
     >
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
-        <DialogTitle>Review matches</DialogTitle>
+        <DialogTitle>Review matches ({name})</DialogTitle>
         <DialogDescription>
-          These books have the same title as an audiobook in your Audiobookshelf library, but the author didn&apos;t
-          match. Confirm the ones that are the same book. Rejected matches won&apos;t be suggested again.
+          These books have the same title as a book in your {name} library, but the author didn&apos;t match. Confirm the
+          ones that are the same book. Rejected matches won&apos;t be suggested again.
         </DialogDescription>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input placeholder="Search by title or author" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search matches" />
+          <ClearableInput placeholder="Search by title or author" value={query} onChange={setQuery} aria-label="Search matches" wrapperClassName="flex-1" />
           <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
             {total === 0 ? "Nothing to review" : `${from}–${to} of ${total}`}
           </span>
@@ -212,11 +243,11 @@ export function ReviewDialog({
                   {item.title} <span className="font-normal text-muted-foreground">by {item.author || "unknown author"}</span>
                 </p>
                 <p className="text-muted-foreground">
-                  In Audiobookshelf:{" "}
-                  {item.absTitle ? (
+                  In {name}:{" "}
+                  {item.matchTitle ? (
                     <>
-                      {item.absTitle}
-                      {item.absAuthor ? <> by {item.absAuthor}</> : null}
+                      {item.matchTitle}
+                      {item.matchAuthor ? <> by {item.matchAuthor}</> : null}
                     </>
                   ) : (
                     "(run Reconcile now to refresh the details)"
@@ -230,14 +261,14 @@ export function ReviewDialog({
                 <Button size="sm" disabled={busy} onClick={() => decide([item.bookId], "confirm")}>
                   Same book
                 </Button>
-                {item.absItemUrl && (
+                {item.matchUrl && (
                   <a
-                    href={item.absItemUrl}
+                    href={item.matchUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                   >
-                    <ExternalLink className="h-3 w-3" /> Open in Audiobookshelf
+                    <ExternalLink className="h-3 w-3" /> Open in {name}
                   </a>
                 )}
               </div>

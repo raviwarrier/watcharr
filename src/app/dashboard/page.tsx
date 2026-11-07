@@ -19,7 +19,7 @@ import {
   Headphones,
   CheckCheck,
   CassetteTape,
-  Octagon,
+  Ghost,
   LayoutGrid,
   List,
   Loader2,
@@ -81,7 +81,7 @@ async function fetchLists(): Promise<{ books: Book[]; authors: AuthorWatch[]; ha
 type OwnedState = "none" | "ebook" | "audiobook" | "both";
 // Order the acquisition button cycles through.
 const OWN_ORDER: OwnedState[] = ["none", "ebook", "audiobook", "both"];
-const OWN_ICON: Record<OwnedState, typeof Octagon> = { none: Octagon, ebook: BookOpen, audiobook: CassetteTape, both: CheckCheck };
+const OWN_ICON: Record<OwnedState, typeof Ghost> = { none: Ghost, ebook: BookOpen, audiobook: CassetteTape, both: CheckCheck };
 // Colour per state. Not owned uses the normal text colour.
 const OWN_COLOR: Record<OwnedState, string> = {
   none: "text-muted-foreground",

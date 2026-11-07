@@ -114,8 +114,11 @@ if [ -n "$GOTIFY_URL" ]; then GOTIFY_TOKEN="$(ask_secret "Gotify application tok
 step "Stopping Watcharr if it's running"
 bash "$ROOT/stop.sh"
 OLD_PORT="${CUR_PORT:-4242}"
-if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:"$OLD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  die "Something else is using port $OLD_PORT, and it wasn't started by start.sh. Stop it, then run the install again."
+PORT_BUSY=0
+if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:"$OLD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then PORT_BUSY=1; fi
+if command -v ss >/dev/null 2>&1 && [ -n "$(ss -ltnH "sport = :$OLD_PORT" 2>/dev/null || true)" ]; then PORT_BUSY=1; fi
+if [ "$PORT_BUSY" -eq 1 ]; then
+  die "Port $OLD_PORT is still in use after stopping Watcharr. Check with: sudo ss -ltnp | grep $OLD_PORT, stop that process, then run the install again."
 fi
 
 # ---------------------------------------------------------------- dependencies

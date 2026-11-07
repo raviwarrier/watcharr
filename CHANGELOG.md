@@ -3,6 +3,12 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.6.3] - 2026-11-07
+
+### Fixed
+- `stop.sh` now also stops a Next.js server on Watcharr's port, even when its folder can't be matched. It prints the process it stopped.
+- If the port is still in use after stopping, `stop.sh` and the install script say so and suggest a command to find the owner.
+
 ## [0.6.2] - 2026-11-07
 
 ### Fixed

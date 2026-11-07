@@ -60,18 +60,23 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 
-# 2. Anything else on the port that runs from this folder.
+# 2. Any other Next.js server on the port. Watcharr's port is set in .env.local, so a Next.js
+#    server there is almost always an earlier Watcharr (for example, one started by hand).
 for PID in $(listener_pids); do
-  if [ "$(cwd_of "$PID")" = "$ROOT" ]; then
+  CWD="$(cwd_of "$PID")"
+  ARGS="$(ps -o args= -p "$PID" 2>/dev/null || true)"
+  if [ "$CWD" = "$ROOT" ] || echo "$ARGS" | grep -qi 'next'; then
     stop_pid "$PID"
-    echo "Stopped the Watcharr process on port $PORT that wasn't started by start.sh (PID $PID)."
+    echo "Stopped the Next.js server on port $PORT (PID $PID, folder: ${CWD:-unknown}, command: ${ARGS:-unknown})."
     STOPPED=1
   fi
 done
 
 if [ "$STOPPED" -eq 0 ]; then
   if [ -n "$(listener_pids)" ]; then
-    echo "Something else is listening on port $PORT, and it doesn't run from this folder. Leaving it alone."
+    echo "Something else is listening on port $PORT, and it doesn't look like Watcharr. Leaving it alone."
+  elif command -v ss >/dev/null 2>&1 && [ -n "$(ss -ltnH "sport = :$PORT" 2>/dev/null)" ]; then
+    echo "Port $PORT is in use, but I can't tell which process owns it. Check with: sudo ss -ltnp | grep $PORT"
   else
     echo "Watcharr is not running."
   fi

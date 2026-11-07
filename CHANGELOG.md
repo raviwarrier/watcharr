@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.3.1] - 2026-11-07
+
+### Fixed
+- On Windows, the server ran in its own console window, and closing that window stopped the app. The server now runs with its window hidden. Used by `start.ps1` and `install.ps1`.
+
 ## [0.3.0] - 2026-11-07
 
 ### Added

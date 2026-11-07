@@ -47,8 +47,11 @@ Write-Host "Starting Watcharr on port $port in the background..."
 # that pipes or waits on our output would hang until the server exits. Win32_Process.Create
 # shares no handles with us. cmd.exe does the redirection and stays alive until node exits,
 # so the PID we save is a reliable "server is running" signal.
+# Win32_Process.Create gives the process its own console window by default. Closing that window
+# stops the server, so hide it (ShowWindow = 0). Hidden windows can't be closed by accident.
+$startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
 $command = "cmd.exe /c node node_modules\next\dist\bin\next start -p $port > `"$LogFile`" 2> `"$ErrFile`" < nul"
-$created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $command; CurrentDirectory = $Root }
+$created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $command; CurrentDirectory = $Root; ProcessStartupInformation = $startup }
 if ($created.ReturnValue -ne 0) {
   Write-Host "Could not start the server (error code $($created.ReturnValue))."
   exit 1

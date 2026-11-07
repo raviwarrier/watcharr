@@ -18,7 +18,7 @@ import {
   FileText,
   Headphones,
   CheckCheck,
-  Disc,
+  CassetteTape,
   Octagon,
   LayoutGrid,
   List,
@@ -81,7 +81,14 @@ async function fetchLists(): Promise<{ books: Book[]; authors: AuthorWatch[]; ha
 type OwnedState = "none" | "ebook" | "audiobook" | "both";
 // Order the acquisition button cycles through.
 const OWN_ORDER: OwnedState[] = ["none", "ebook", "audiobook", "both"];
-const OWN_ICON: Record<OwnedState, typeof Octagon> = { none: Octagon, ebook: BookOpen, audiobook: Disc, both: CheckCheck };
+const OWN_ICON: Record<OwnedState, typeof Octagon> = { none: Octagon, ebook: BookOpen, audiobook: CassetteTape, both: CheckCheck };
+// Colour per state. Not owned uses the normal text colour.
+const OWN_COLOR: Record<OwnedState, string> = {
+  none: "text-muted-foreground",
+  ebook: "text-yellow-500 dark:text-yellow-400",
+  audiobook: "text-blue-500 dark:text-blue-400",
+  both: "text-emerald-600 dark:text-emerald-400",
+};
 const OWN_LABEL: Record<OwnedState, string> = {
   none: "Not owned. Click to mark as an ebook you own",
   ebook: "Ebook owned. Click to mark the audiobook as owned too",
@@ -933,9 +940,9 @@ export default function DashboardPage() {
                       onClick={() => cycleOwned(b)}
                       title={OWN_LABEL[owned]}
                       aria-label={OWN_LABEL[owned]}
-                      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent"
                     >
-                      <OwnIcon className={cn("h-4 w-4", owned !== "none" && "text-emerald-600 dark:text-emerald-400")} />
+                      <OwnIcon className={cn("h-4 w-4", OWN_COLOR[owned])} />
                     </button>
                     <div className={cn("flex min-w-0 flex-1 gap-4 p-4", view === "list" && "items-center py-3")}>
                       <Cover src={b.coverUrl} alt={b.title} className={view === "grid" ? "h-36 w-24" : "h-20 w-14"} />

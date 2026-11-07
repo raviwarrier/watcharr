@@ -3,6 +3,17 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.6.0] - 2026-11-07
+
+### Added
+- Calendar menu in the header: **Download .ics file** and **Get subscription link**. The link is shown to signed-in users, so you don't need to keep the token.
+- Caution zone at the bottom of Settings, with **Rotate calendar token** (the old subscription link stops working) and **Rotate access key** (signs out other browsers; the new key is shown once).
+- Access key and calendar token are now stored in the encrypted settings. The access key was previously only in `.env.local`, which is still used as a fallback.
+
+### Changed
+- The install script stores the calendar token it creates, so the subscription link works from the start.
+- Re-running the install script (for example after `git pull`) keeps your access key and calendar link. It asks "Create new access key and calendar link? [y/N]" (default no). Choosing yes replaces both keys, signs out other browsers, and shows the new keys once.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added

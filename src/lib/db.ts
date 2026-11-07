@@ -71,6 +71,17 @@ export async function setSetting(key: string, value: string): Promise<void> {
 }
 
 /**
+ * Synchronous read for code that can't await, such as the access checks in the proxy.
+ * Secrets are decrypted; legacy plaintext values are returned as stored.
+ */
+export function getSettingSync(key: string): string | null {
+  const row = sqlite.prepare("select value from settings where key = ?").get(key) as { value: string } | undefined;
+  if (!row) return null;
+  if (!isSecretSetting(key)) return row.value;
+  return decryptSecret(row.value, DB_DIR) ?? row.value;
+}
+
+/**
  * Settings status for the browser. Secret values are masked; the plaintext never leaves the server.
  */
 export async function getSettingsStatus(): Promise<

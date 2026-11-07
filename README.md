@@ -110,17 +110,31 @@ This serves on http://localhost:4242 with hot reload.
 Watcharr needs a key to sign in. The install script creates two 64-character keys the first time it runs and shows them once:
 
 - **Access key:** the password for the web app. Type it at the sign-in page. Anyone with it can see your watchlist and change settings.
-- **Calendar token:** used only in the calendar feed URL, for calendar apps: `http://localhost:4242/api/calendar.ics?token=...`. Replace `localhost` with the server's address when the calendar app is on another device.
+- **Calendar token:** used only in the calendar feed URL, for calendar apps: `http://localhost:4242/api/calendar.ics?token=...`. Replace `localhost` with the server's address when the calendar app is on another device. Signed-in users can get the full link from the **Calendar feed** menu, choosing **Get subscription link**.
 
-Watcharr stores only the SHA-256 hashes of these keys, in `.env.local`. Save the keys in a password manager when you see them.
+The access key is stored only as a hash. The calendar token is stored encrypted, so the app can show the subscription link again. Save the access key in a password manager when you see it.
 
 The sign-in session lasts 30 days. Use **Sign out** in the header to end it. Five wrong keys in a row lock sign-in for 15 minutes.
 
-### Resetting keys
+### Changing keys
 
-If you lose a key, or want new ones, delete the `ACCESS_KEY_SHA256` and `CALENDAR_TOKEN_SHA256` lines from `.env.local`, then run the install script again. Choose the defaults. The new keys are shown once. The old access key stops working right away, and calendar apps need the new feed URL.
+Open **Settings → Caution zone**:
 
-Your watchlist and settings aren't affected.
+- **Rotate calendar token** makes a new subscription link. The old link stops working.
+- **Rotate access key** makes a new access key, shown once. Every other browser is signed out.
+
+Your watchlist and settings aren't affected by either action.
+
+### Forgot the key, or it may have been misused
+
+Run the install script again:
+
+- macOS or Linux: `bash install.sh`
+- Windows: `powershell -ExecutionPolicy Bypass -File .\install.ps1`
+
+When it asks **"Create new access key and calendar link?"**, answer `y`. The new keys are shown once. Anyone using the old key or link is signed out or stops getting calendar updates. Your watchlist and settings stay as they are.
+
+Just updating the code is different. Running the install script after `git pull` keeps your keys, so press Enter at that question (the default is no).
 
 ## Configuration
 

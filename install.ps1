@@ -5,14 +5,18 @@
 .DESCRIPTION
   Asks for the settings it needs (with defaults), writes .env.local, installs dependencies,
   creates the database if there isn't one yet, builds the app, and starts it in the background.
-  On first install it also creates an access key and a calendar token, shows them once, and
-  stores only their hashes.
+  On first install it creates an access key and a calendar link and shows them once.
+
+  Re-running it after an update keeps your access key and calendar link. It creates new ones only
+  if you answer "yes" to the reset question (default: no).
 
   Run it from the project folder:
       powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 .PARAMETER Yes
-  Accept every default without asking. Optional tokens are skipped.
+  Accept every default without asking (also -AcceptDefaults or -a). Optional tokens are skipped,
+  and keys are kept. On a first install, new keys are still shown, and you're still asked to press Enter
+  once you've saved them.
 
 .PARAMETER Port
   Port for the web app. Default: 4242.
@@ -24,6 +28,7 @@
   Install and build, but don't start the app.
 #>
 param(
+  [Alias("AcceptDefaults", "a")]
   [switch]$Yes,
   [int]$Port = 0,
   [string]$DataDir = "",
@@ -43,7 +48,7 @@ function Invoke-Checked([string]$FilePath, [string[]]$Arguments) {
 }
 
 function New-HexSecret {
-  # 32 random bytes as 64 hex characters. Works on Windows PowerShell 5.1 and PowerShell 7.
+  # 32 random bytes as 64 hex characters.
   return (node -p "require('crypto').randomBytes(32).toString('hex')").Trim()
 }
 
@@ -127,46 +132,92 @@ if ($secretKey) {
   Write-Host "Generated a new encryption key and saved it to .env.local."
 }
 
-# Access keys: created on first install only. Existing keys are kept, so nothing is shown again.
-$accessKey = ""
-$calendarToken = ""
-$accessHash = $current["ACCESS_KEY_SHA256"]
-$calendarHash = $current["CALENDAR_TOKEN_SHA256"]
-if (-not $accessHash -or -not $calendarHash) {
-  $accessKey = New-HexSecret
-  $calendarToken = New-HexSecret
-  $accessHash = Get-Sha256Hex $accessKey
-  $calendarHash = Get-Sha256Hex $calendarToken
-} else {
-  Write-Host "Keeping the access key and calendar token already set up. They aren't shown again."
-}
-
 # Optional connections (saved encrypted once the app is running, by signing in)
 $hardcoverToken = Read-OptionalSecret "Hardcover API token"
 $gotifyUrl = Read-OptionalText "Gotify server URL"
 $gotifyToken = if ($gotifyUrl) { Read-OptionalSecret "Gotify application token" } else { "" }
+
+# ---------------------------------------------------------------- stop a running copy
+# Windows won't replace files that a running app is using, so stop Watcharr first if it's running.
+Write-Step "Stopping Watcharr if it's running"
+& (Join-Path $Root "stop.ps1")
+$oldPort = if ($current["PORT"]) { [int]$current["PORT"] } else { 4242 }
+if (Get-NetTCPConnection -LocalPort $oldPort -State Listen -ErrorAction SilentlyContinue) {
+  throw "Something else is using port $oldPort, and it wasn't started by start.ps1. Stop it, then run the install again."
+}
+
+# ---------------------------------------------------------------- dependencies
+Write-Step "Installing dependencies (npm ci)"
+Invoke-Checked "npm" @("ci", "--no-audit", "--no-fund")
+
+# ---------------------------------------------------------------- access keys
+# Does the app already have keys? Either .env.local has the hashes, or the database has a stored key.
+$dbFile = Join-Path $dataValue "book-release-tracker.sqlite"
+function Test-DbSetting([string]$Key) {
+  if (-not (Test-Path $dbFile)) { return $false }
+  $env:WATCHARR_DB = $dbFile
+  $env:WATCHARR_KEY = $Key
+  try {
+    node -e "const D=require('better-sqlite3');const db=new D(process.env.WATCHARR_DB,{readonly:true});process.exit(db.prepare('select 1 from settings where key=?').get(process.env.WATCHARR_KEY)?0:1)"
+    return ($LASTEXITCODE -eq 0)
+  } finally {
+    Remove-Item Env:WATCHARR_DB, Env:WATCHARR_KEY -ErrorAction SilentlyContinue
+  }
+}
+
+$keysExist = [bool]$current["ACCESS_KEY_SHA256"] -or (Test-DbSetting "accessKeyHash")
+
+$reset = $false
+if ($keysExist) {
+  Write-Host ""
+  Write-Host "Your access key and calendar link already exist. Keep them unless you need new ones." -ForegroundColor Yellow
+  Write-Host "Choose yes only if you forgot the access key, or it may have fallen into the wrong hands." -ForegroundColor Yellow
+  Write-Host "Anyone using the old key or link will be signed out or stop getting calendar updates." -ForegroundColor Yellow
+  if (-not $Yes) {
+    $answer = Read-Host "Create new access key and calendar link? [y/N]"
+    if ($answer -match '^(y|yes)$') { $reset = $true }
+  }
+  if ($reset) { Write-Host "Creating new keys." } else { Write-Host "Keeping your existing keys." }
+}
+
+$accessKey = ""
+$calendarToken = ""
+$accessHash = $current["ACCESS_KEY_SHA256"]
+$calendarHash = $current["CALENDAR_TOKEN_SHA256"]
+if ($reset -or -not $keysExist) {
+  $accessKey = New-HexSecret
+  $calendarToken = New-HexSecret
+  $accessHash = Get-Sha256Hex $accessKey
+  $calendarHash = Get-Sha256Hex $calendarToken
+  if ($reset -and (Test-Path $dbFile)) {
+    # Clear the stored copies the app uses in preference to .env.local, so the new keys take effect.
+    $env:WATCHARR_DB = $dbFile
+    $env:WATCHARR_SQL = "delete from settings where key in ('accessKeyHash','calendarToken')"
+    try {
+      node -e "const D=require('better-sqlite3');const db=new D(process.env.WATCHARR_DB);db.prepare(process.env.WATCHARR_SQL).run();db.close()"
+      if ($LASTEXITCODE -ne 0) { throw "Could not clear the stored keys." }
+    } finally {
+      Remove-Item Env:WATCHARR_DB, Env:WATCHARR_SQL -ErrorAction SilentlyContinue
+    }
+  }
+}
 
 # ---------------------------------------------------------------- write .env.local
 Write-Step "Writing .env.local"
 $lines = @(
   "# Written by install.ps1. Private to this machine; this file is gitignored.",
   "PORT=$portValue",
-  "DB_DIR=$dataValue",
-  "ACCESS_KEY_SHA256=$accessHash",
-  "CALENDAR_TOKEN_SHA256=$calendarHash"
+  "DB_DIR=$dataValue"
 )
 if ($secretKey) { $lines += "APP_SECRET_KEY=$secretKey" }
+if ($accessHash) { $lines += "ACCESS_KEY_SHA256=$accessHash" }
+if ($calendarHash) { $lines += "CALENDAR_TOKEN_SHA256=$calendarHash" }
 Set-Content -Path $EnvFile -Value $lines -Encoding utf8
 Write-Host "Saved $EnvFile"
-
-# ---------------------------------------------------------------- dependencies
-Write-Step "Installing dependencies (npm ci)"
-Invoke-Checked "npm" @("ci", "--no-audit", "--no-fund")
 
 # ---------------------------------------------------------------- database
 Write-Step "Preparing the database"
 New-Item -ItemType Directory -Force -Path $dataValue | Out-Null
-$dbFile = Join-Path $dataValue "book-release-tracker.sqlite"
 if (Test-Path $dbFile) {
   # Never run drizzle push over an existing database: it can drop columns.
   Write-Host "Existing database found. Leaving its schema alone."
@@ -198,10 +249,12 @@ if ($accessKey) {
   Write-Host "  localhost with this computer's address:"
   Write-Host "    http://localhost:$portValue/api/calendar.ics?token=$calendarToken"
   Write-Host ""
-  Write-Host "  These are shown only once. Watcharr keeps only their hashes."
-  Write-Host "  To replace them later, see `"Resetting keys`" in the README."
+  Write-Host "  The access key is shown only once. Watcharr keeps only its hash."
+  Write-Host "  The calendar link can be shown again from the Calendar feed menu."
+  Write-Host "  To change them later, use Settings > Caution zone."
   Write-Host "=============================================================="
-  if (-not $Yes) { Read-Host "Press Enter once you have saved them" | Out-Null }
+  # Keys are shown only once, so pause before the output scrolls away. Skipped when input is piped.
+  if (-not [Console]::IsInputRedirected) { Read-Host "Press Enter once you have saved them" | Out-Null }
 }
 
 # ---------------------------------------------------------------- start
@@ -218,8 +271,8 @@ if ($LASTEXITCODE -ne 0) { throw "Watcharr did not start. See .watcharr\app.err.
 # ---------------------------------------------------------------- optional connections
 $base = "http://localhost:$portValue"
 $session = $null
-if ($accessKey -and ($hardcoverToken -or $gotifyUrl)) {
-  # Sign in with the key we just created, so the settings API accepts our writes.
+if ($accessKey) {
+  # Sign in with the key we just created, so the app accepts the calendar token and our settings.
   try {
     $loginBody = @{ key = $accessKey } | ConvertTo-Json -Compress
     Invoke-WebRequest -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" -Body $loginBody -SessionVariable session -UseBasicParsing | Out-Null
@@ -250,6 +303,16 @@ if ($gotifyUrl) {
     Write-Host "Gotify settings saved. Use Send test in Settings to check them."
   } else {
     Write-Host "Gotify settings not saved. Add them in Settings after signing in."
+  }
+}
+if ($session -and $calendarToken) {
+  # Store the calendar token (encrypted) so the app can show the subscription link later.
+  try {
+    $tokenBody = @{ token = $calendarToken } | ConvertTo-Json -Compress
+    Invoke-RestMethod -Method Post -Uri "$base/api/security/set-calendar-token" -ContentType "application/json" -Body $tokenBody -WebSession $session | Out-Null
+    Write-Host "Calendar subscription link is available in the app's Calendar feed menu."
+  } catch {
+    Write-Host "Could not store the calendar token. Use Rotate calendar token in Settings if the feed link stops working."
   }
 }
 $hardcoverToken = $null

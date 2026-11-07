@@ -1,16 +1,21 @@
 import crypto from "node:crypto";
+import { getSettingSync } from "@/lib/db";
 
 /**
  * Access control for Watcharr.
  *
- * - ACCESS_KEY_SHA256: SHA-256 of the access key the user types to sign in. Written by the
- *   install script. The key itself is shown once and never stored.
- * - CALENDAR_TOKEN_SHA256: SHA-256 of the token in the calendar feed URL (?token=...).
+ * Access key: the password for the web app. Stored as a SHA-256 hash in the encrypted settings
+ *   (key "accessKeyHash"), changed from Settings > Caution zone. Install writes the hash to
+ *   .env.local (ACCESS_KEY_SHA256) as a fallback, used only when the settings value is missing.
  *
- * The session cookie is an HMAC of ACCESS_KEY_SHA256, so it can't be forged without the hash and
- * it stops working as soon as the access key is rotated.
+ * Calendar token: the token in the calendar feed URL. Stored encrypted in settings
+ *   (key "calendarToken"), so the app can show the subscription link to signed-in users.
+ *   CALENDAR_TOKEN_SHA256 in .env.local is a fallback for installs made before that.
  *
- * If ACCESS_KEY_SHA256 is missing, nobody can sign in (fail closed) until the install script runs.
+ * The session cookie is an HMAC keyed by the access-key hash. Changing the access key
+ * therefore signs out every other session.
+ *
+ * If no access-key hash exists anywhere, nobody can sign in (fail closed).
  */
 
 export const SESSION_COOKIE = "watcharr_session";
@@ -18,6 +23,10 @@ export const SESSION_DAYS = 30;
 
 export function sha256Hex(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+export function randomToken(): string {
+  return crypto.randomBytes(32).toString("hex");
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -32,7 +41,7 @@ export function sessionValueFor(keyHash: string): string {
 }
 
 export function accessKeyHash(): string | null {
-  return process.env.ACCESS_KEY_SHA256 || null;
+  return getSettingSync("accessKeyHash") || process.env.ACCESS_KEY_SHA256 || null;
 }
 
 export function isConfigured(): boolean {
@@ -51,10 +60,17 @@ export function isValidAccessKey(key: string): boolean {
   return safeEqual(sha256Hex(key), hash);
 }
 
+/** The current calendar token in plain text, or null if none is stored. */
+export function calendarToken(): string | null {
+  return getSettingSync("calendarToken");
+}
+
 export function isValidCalendarToken(token: string | null): boolean {
-  const hash = process.env.CALENDAR_TOKEN_SHA256;
-  if (!hash || !token) return false;
-  return safeEqual(sha256Hex(token), hash);
+  if (!token) return false;
+  const stored = calendarToken();
+  if (stored) return safeEqual(token, stored);
+  const fallbackHash = process.env.CALENDAR_TOKEN_SHA256;
+  return fallbackHash ? safeEqual(sha256Hex(token), fallbackHash) : false;
 }
 
 /** Only allow in-app paths after sign-in, so ?next= can't send the user to another site. */

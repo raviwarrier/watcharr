@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarDays, LayoutDashboard, LogOut, Settings } from "lucide-react";
+import { BookOpen, LayoutDashboard, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CalendarMenu } from "@/components/calendar-menu";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -65,13 +66,7 @@ export function SiteNav() {
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Sign out</span>
           </button>
-          <a
-            href="/api/calendar.ics"
-            className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
-          >
-            <CalendarDays className="h-4 w-4" />
-            <span className="hidden sm:inline">Calendar feed</span>
-          </a>
+          <CalendarMenu />
         </div>
       </div>
     </header>

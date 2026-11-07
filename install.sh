@@ -3,8 +3,11 @@
 # Works on macOS and Linux.
 #
 #   bash install.sh                 interactive, asks for each setting
-#   bash install.sh --yes           accept every default (optional tokens are skipped)
+#   bash install.sh --yes           accept every default (also -a or --accept-defaults)
 #   bash install.sh --port 4300 --data-dir ~/watcharr-data --no-start
+#
+# Re-running this script after an update keeps your access key and calendar link.
+# It only creates new ones when you answer "yes" to the reset question (default: no).
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -17,11 +20,11 @@ DATA_ARG=""
 NO_START=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    -y|--yes) YES=1 ;;
+    -y|--yes|-a|--accept-defaults) YES=1 ;;
     --port) PORT_ARG="${2:-}"; shift ;;
     --data-dir) DATA_ARG="${2:-}"; shift ;;
     --no-start) NO_START=1 ;;
-    -h|--help) sed -n '2,7p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
   shift
@@ -100,25 +103,63 @@ else
   echo "Generated a new encryption key and saved it to .env.local."
 fi
 
-# Access keys: created on first install only. Existing keys are kept, so nothing is shown again.
-ACCESS_KEY=""
-CALENDAR_TOKEN=""
-ACCESS_HASH="$CUR_ACCESS_HASH"
-CALENDAR_HASH="$CUR_CALENDAR_HASH"
-if [ -z "$ACCESS_HASH" ] || [ -z "$CALENDAR_HASH" ]; then
-  ACCESS_KEY="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
-  CALENDAR_TOKEN="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
-  ACCESS_HASH="$(K="$ACCESS_KEY" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
-  CALENDAR_HASH="$(K="$CALENDAR_TOKEN" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
-else
-  echo "Keeping the access key and calendar token already set up. They aren't shown again."
-fi
-
 # Optional connections (saved encrypted once the app is running, by signing in).
 HARDCOVER_TOKEN="$(ask_secret "Hardcover API token")"
 GOTIFY_URL="$(ask_optional "Gotify server URL")"
 GOTIFY_TOKEN=""
 if [ -n "$GOTIFY_URL" ]; then GOTIFY_TOKEN="$(ask_secret "Gotify application token")"; fi
+
+# ---------------------------------------------------------------- stop a running copy
+# Stop Watcharr first if it's running, so its files can be replaced.
+step "Stopping Watcharr if it's running"
+bash "$ROOT/stop.sh"
+OLD_PORT="${CUR_PORT:-4242}"
+if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:"$OLD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  die "Something else is using port $OLD_PORT, and it wasn't started by start.sh. Stop it, then run the install again."
+fi
+
+# ---------------------------------------------------------------- dependencies
+step "Installing dependencies (npm ci)"
+npm ci --no-audit --no-fund
+
+# ---------------------------------------------------------------- access keys
+# Does the app already have keys? Either .env.local has the hashes, or the database has a stored key.
+DB_FILE="$DATA_VALUE/book-release-tracker.sqlite"
+db_has_setting() {
+  [ -f "$DB_FILE" ] || return 1
+  node -e "const D=require('better-sqlite3');const db=new D(process.argv[1],{readonly:true});process.exit(db.prepare('select 1 from settings where key=?').get(process.argv[2])?0:1)" "$DB_FILE" "$1"
+}
+
+KEYS_EXIST=0
+if [ -n "$CUR_ACCESS_HASH" ] || db_has_setting accessKeyHash; then KEYS_EXIST=1; fi
+
+RESET=0
+if [ "$KEYS_EXIST" -eq 1 ]; then
+  echo
+  echo "Your access key and calendar link already exist. Keep them unless you need new ones."
+  echo "Choose yes only if you forgot the access key, or it may have fallen into the wrong hands."
+  echo "Anyone using the old key or link will be signed out or stop getting calendar updates."
+  if [ "$YES" -eq 0 ]; then
+    read -r -p "Create new access key and calendar link? [y/N]: " ANSWER || true
+    case "$ANSWER" in y|Y|yes|YES) RESET=1 ;; esac
+  fi
+  if [ "$RESET" -eq 1 ]; then echo "Creating new keys."; else echo "Keeping your existing keys."; fi
+fi
+
+ACCESS_KEY=""
+CALENDAR_TOKEN=""
+ACCESS_HASH="$CUR_ACCESS_HASH"
+CALENDAR_HASH="$CUR_CALENDAR_HASH"
+if [ "$RESET" -eq 1 ] || [ "$KEYS_EXIST" -eq 0 ]; then
+  ACCESS_KEY="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
+  CALENDAR_TOKEN="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
+  ACCESS_HASH="$(K="$ACCESS_KEY" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
+  CALENDAR_HASH="$(K="$CALENDAR_TOKEN" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
+  if [ "$RESET" -eq 1 ] && [ -f "$DB_FILE" ]; then
+    # Clear the stored copies the app uses in preference to .env.local, so the new keys take effect.
+    node -e "const D=require('better-sqlite3');const db=new D(process.argv[1]);db.prepare(\"delete from settings where key in ('accessKeyHash','calendarToken')\").run();db.close()" "$DB_FILE"
+  fi
+fi
 
 # ---------------------------------------------------------------- .env.local
 step "Writing .env.local"
@@ -127,20 +168,16 @@ step "Writing .env.local"
   echo "PORT=$PORT_VALUE"
   echo "DB_DIR=$DATA_VALUE"
   if [ -n "$SECRET_KEY" ]; then echo "APP_SECRET_KEY=$SECRET_KEY"; fi
-  echo "ACCESS_KEY_SHA256=$ACCESS_HASH"
-  echo "CALENDAR_TOKEN_SHA256=$CALENDAR_HASH"
+  if [ -n "$ACCESS_HASH" ]; then echo "ACCESS_KEY_SHA256=$ACCESS_HASH"; fi
+  if [ -n "$CALENDAR_HASH" ]; then echo "CALENDAR_TOKEN_SHA256=$CALENDAR_HASH"; fi
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 echo "Saved $ENV_FILE"
 
-# ---------------------------------------------------------------- dependencies
-step "Installing dependencies (npm ci)"
-npm ci --no-audit --no-fund
-
 # ---------------------------------------------------------------- database
 step "Preparing the database"
 mkdir -p "$DATA_VALUE"
-if [ -f "$DATA_VALUE/book-release-tracker.sqlite" ]; then
+if [ -f "$DB_FILE" ]; then
   # Never run drizzle push over an existing database: it can drop columns.
   echo "Existing database found. Leaving its schema alone."
 else
@@ -171,11 +208,13 @@ if [ -n "$ACCESS_KEY" ]; then
   localhost with this computer's address:
     http://localhost:$PORT_VALUE/api/calendar.ics?token=$CALENDAR_TOKEN
 
-  These are shown only once. Watcharr keeps only their hashes.
-  To replace them later, see "Resetting keys" in the README.
+  The access key is shown only once. Watcharr keeps only its hash.
+  The calendar link can be shown again from the Calendar feed menu.
+  To change them later, use Settings > Caution zone.
 ==============================================================
 EOF
-  if [ "$YES" -eq 0 ]; then
+  # Keys are shown only once, so pause before the output scrolls away. Skipped when input is piped.
+  if [ -t 0 ]; then
     read -r -p "Press Enter once you have saved them... " _ || true
   fi
 fi
@@ -196,8 +235,8 @@ JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
 
 SIGNED_IN=0
-if [ -n "$ACCESS_KEY" ] && { [ -n "$HARDCOVER_TOKEN" ] || [ -n "$GOTIFY_URL" ]; }; then
-  # Sign in with the key we just created, so the settings API accepts our writes.
+if [ -n "$ACCESS_KEY" ]; then
+  # Sign in with the key we just created, so the app accepts the calendar token and our settings.
   LOGIN_BODY="$(K="$ACCESS_KEY" node -p 'JSON.stringify({key: process.env.K})')"
   if curl -fsS -c "$JAR" -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' -d "$LOGIN_BODY" >/dev/null; then
     SIGNED_IN=1
@@ -229,6 +268,14 @@ if [ -n "$GOTIFY_URL" ]; then
   else
     echo "Gotify settings not saved. Add them in Settings after signing in."
   fi
+fi
+
+if [ "$SIGNED_IN" -eq 1 ] && [ -n "$CALENDAR_TOKEN" ]; then
+  # Store the calendar token (encrypted) so the app can show the subscription link later.
+  TOKEN_BODY="$(K="$CALENDAR_TOKEN" node -p 'JSON.stringify({token: process.env.K})')"
+  curl -fsS -b "$JAR" -X POST "$BASE/api/security/set-calendar-token" -H 'Content-Type: application/json' -d "$TOKEN_BODY" >/dev/null \
+    && echo "Calendar subscription link is available in the app's Calendar feed menu." \
+    || echo "Could not store the calendar token. Use Rotate calendar token in Settings if the feed link stops working."
 fi
 HARDCOVER_TOKEN=""
 GOTIFY_TOKEN=""

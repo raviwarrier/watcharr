@@ -29,6 +29,13 @@ export interface AuthorCandidate {
   hardcoverAuthorId: number;
   name: string;
   booksCount: number | null;
+  slug: string | null; // UNVERIFIED: used for the profile link hardcover.app/authors/<slug>
+  imageUrl: string | null; // UNVERIFIED: author profile picture
+}
+
+export interface AuthorProfile {
+  slug: string | null;
+  imageUrl: string | null;
 }
 
 export interface BookDetail {
@@ -168,6 +175,8 @@ export async function searchCandidates(
           hardcoverAuthorId: Number(d.id),
           name: String(d.name ?? ""),
           booksCount: typeof d.books_count === "number" ? d.books_count : null,
+          slug: d.slug ?? null,
+          imageUrl: d.image?.url ?? null,
         }))
         .filter((a: AuthorCandidate) => a.hardcoverAuthorId && a.name)
     : [];
@@ -232,16 +241,36 @@ export async function getBookDetail(hardcoverId: number): Promise<BookDetail | n
   };
 }
 
-/** Upcoming (not-yet-released) books by one author. UNVERIFIED filter syntax. */
-export async function getAuthorUpcomingBooks(hardcoverAuthorId: number): Promise<BookDetail[]> {
-  const today = new Date().toISOString().slice(0, 10);
+/** An author's profile slug and picture, for the profile link and the card. UNVERIFIED field names. */
+export async function getAuthorProfile(hardcoverAuthorId: number): Promise<AuthorProfile | null> {
   const data = await hardcoverGraphQL<any>(
     `
-    query AuthorUpcoming($authorId: Int!, $today: date!) {
+    query AuthorProfile($id: Int!) {
+      authors_by_pk(id: $id) {
+        slug
+        image { url }
+      }
+    }
+    `,
+    { id: hardcoverAuthorId },
+  );
+  const a = data.authors_by_pk;
+  if (!a) return null;
+  return { slug: a.slug ?? null, imageUrl: a.image?.url ?? null };
+}
+
+/**
+ * Every book by one author on Hardcover, including ones with no release date yet.
+ * The caller decides which of them go on the watchlist. UNVERIFIED filter syntax.
+ */
+export async function getAuthorBooks(hardcoverAuthorId: number): Promise<BookDetail[]> {
+  const data = await hardcoverGraphQL<any>(
+    `
+    query AuthorBooks($authorId: Int!) {
       books(
-        where: { contributions: { author_id: { _eq: $authorId } }, release_date: { _gte: $today } }
+        where: { contributions: { author_id: { _eq: $authorId } } }
         order_by: { release_date: asc }
-        limit: 100
+        limit: 200
       ) {
         id
         title
@@ -252,7 +281,7 @@ export async function getAuthorUpcomingBooks(hardcoverAuthorId: number): Promise
       }
     }
     `,
-    { authorId: hardcoverAuthorId, today },
+    { authorId: hardcoverAuthorId },
   );
 
   return (data.books ?? []).map((b: any) => ({

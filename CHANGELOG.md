@@ -3,6 +3,56 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.16.3] - 2026-11-07
+
+### Changed
+- Dark is the default theme. Choose System in the theme menu to follow your device.
+
+## [0.16.2] - 2026-11-07
+
+### Changed
+- All messages are toasts in the bottom-right corner: sign-in errors, Settings saves and connection tests, Import, Reconciling Libraries, Caution zone, review and calendar errors, and dashboard messages. Colours and text are unchanged. Success and warnings clear after a few seconds; errors stay until dismissed.
+- The Hardcover setup prompt stays as a banner, since it remains until a token is added.
+
+## [0.16.1] - 2026-11-07
+
+### Changed
+- Dashboard messages (success, warnings, errors) appear as a toast in the bottom-right corner. They no longer push the page up and down. Success and warning messages clear after a few seconds; errors stay until dismissed.
+
+## [0.16.0] - 2026-11-07
+
+### Added
+- Author cards show the author's Hardcover profile picture, framed like a book cover. A person icon is shown when there's no picture.
+- An icon button at the top right of each author card opens the author's Hardcover page.
+
+### Note
+- The author picture and link use Hardcover fields that haven't been checked against the live API. Re-check a watched author to fill them in.
+
+## [0.15.1] - 2026-11-07
+
+### Fixed
+- Authors: Hardcover lists many old books without a release date. Those are no longer added as upcoming when you start watching an author. New books with no date are still added, if the Authors setting is on.
+- Authors: an author's card also lists books by that author that were added by hand, when they have a future date (for example Dark Union).
+- Authors: cards have a fixed height. Each shows up to three titles; See all books shows the rest.
+
+### Changed
+- Authors toolbar matches Books: search on the right, the grid/list switch beside it, and sort below. The grid/list switch works for authors.
+- Search placeholder: "Search your list for an author".
+- Settings are grouped into General, Books, and Authors.
+
+## [0.15.0] - 2026-11-07
+
+### Added
+- Authors tab. Each watched author shows their upcoming books (a date, or TBD), with See all books, Re-check, and Remove author. Click a title to open its card.
+- Authors can be searched and sorted by name, or by next release.
+- Settings > Authors: add books with a TBD date (on by default), and include books already out when you start watching an author (off by default).
+
+### Changed
+- Watching an author adds all of their books on Hardcover that are new, including ones with no date yet. Previously only books with a future date were added.
+- Authors are checked on the same schedule as your books.
+- The search fields say "Titles to watch for" and "Authors to watch for". The top heading is Search.
+- The Books and Authors tabs sit below the search bar.
+
 ## [0.14.0] - 2026-11-07
 
 ### Added

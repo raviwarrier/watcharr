@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { notify } from "@/components/notify";
 import { AlertTriangle, Check, Copy, KeyRound, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -55,7 +56,10 @@ function ShowOnce({
 export function CautionZone() {
   const [busy, setBusy] = useState<"calendar" | "access" | null>(null);
   const [confirm, setConfirm] = useState<"calendar" | "access" | null>(null);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Messages appear as toasts in the bottom-right corner.
+  const setMessage = (m: { tone: "ok" | "error"; text: string } | null) => {
+    if (m) notify(m.tone, m.text);
+  };
   const [newCalendarUrl, setNewCalendarUrl] = useState<string | null>(null);
   const [newAccessKey, setNewAccessKey] = useState<string | null>(null);
 
@@ -102,12 +106,6 @@ export function CautionZone() {
       </header>
 
       <div className="space-y-4 p-5">
-        {message && (
-          <p role="alert" className="text-sm text-destructive">
-            {message.text}
-          </p>
-        )}
-
         <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-0.5">
             <p className="flex items-center gap-2 font-medium">

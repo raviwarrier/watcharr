@@ -30,6 +30,8 @@ export const PUBLIC_SETTING_KEYS = new Set([
   "alertAudiobook",
   "alertScheduled",
   "lastAutoCheckAt",
+  "authorIncludeTba",
+  "authorIncludeReleased",
 ]);
 
 /** True for any setting that must be encrypted at rest and masked in the UI. */

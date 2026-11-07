@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
-import { availabilityFor, getAuthorUpcomingBooks, getBookDetail, type BookDetail } from "@/lib/hardcover";
+import { availabilityFor, getAuthorBooks, getAuthorProfile, getBookDetail, type BookDetail } from "@/lib/hardcover";
+import { getAuthorFlag } from "@/lib/prefs";
 import { findAppleAudiobook } from "@/lib/itunes";
 
 function todayIso(): string {
@@ -157,7 +158,32 @@ export async function watchAuthor(hardcoverAuthorId: number, name: string) {
   return { watch, ...added };
 }
 
-/** Pull the current upcoming books for one author watch. */
+/**
+ * What a sync remembers about one author, stored as JSON in author_watches.known_book_ids.
+ * - seen: Hardcover book ids already handled. Added, or judged to be old. A book you remove stays here.
+ * - undated: books on the first check that had no release date. They wait, and are added only if a future date appears.
+ * An older format (a plain array) is read as seen only.
+ */
+type AuthorMemory = { seen: number[]; undated: number[] };
+
+function readMemory(raw: string | null): AuthorMemory {
+  if (!raw) return { seen: [], undated: [] };
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed)) return { seen: parsed, undated: [] };
+  return { seen: parsed.seen ?? [], undated: parsed.undated ?? [] };
+}
+
+/**
+ * Checks one author on Hardcover and adds what's new to the watchlist.
+ *
+ * Hardcover leaves the release date empty on many old books too, so "no date" alone doesn't mean "upcoming".
+ * - First check (the author was just added): books with a future date are added. Books with no date, or
+ *   already out, are only added if "Include books already out" is on. Books with no date wait, in case a
+ *   future date appears later.
+ * - Later checks: a new book with a future date is added. A new book with no date is added only if
+ *   "Add books with a TBD date" is on. A new book already out is added.
+ * - Books already on the watchlist get their date refreshed. Books seen before are never added again.
+ */
 export async function syncAuthorWatch(authorWatchId: number) {
   const [watch] = await db
     .select()
@@ -166,18 +192,104 @@ export async function syncAuthorWatch(authorWatchId: number) {
     .limit(1);
   if (!watch) return { added: 0, updated: 0 };
 
-  const upcoming = await getAuthorUpcomingBooks(watch.hardcoverAuthorId);
-  let added = 0;
-  let updated = 0;
-  for (const detail of upcoming) {
-    const result = await upsertBook(detail, watch.id);
-    if (result.created) added++;
-    else updated++;
+  // Profile link and picture. A failure here must not stop the book check.
+  const profile = await getAuthorProfile(watch.hardcoverAuthorId).catch(() => null);
+  if (profile) {
+    await db
+      .update(schema.authorWatches)
+      .set({ slug: profile.slug, imageUrl: profile.imageUrl })
+      .where(eq(schema.authorWatches.id, watch.id));
   }
 
+  const books = await getAuthorBooks(watch.hardcoverAuthorId);
+  const includeTba = await getAuthorFlag("authorIncludeTba");
+  const includeReleased = await getAuthorFlag("authorIncludeReleased");
+  const today = todayIso();
+  const firstCheck = watch.knownBookIds === null;
+  const memory = readMemory(watch.knownBookIds);
+  const seen = new Set<number>(memory.seen);
+  const undated = new Set<number>(memory.undated);
+  const now = new Date().toISOString();
+  let added = 0;
+  let updated = 0;
+
+  for (const detail of books) {
+    const id = detail.hardcoverId;
+    const date = detail.releaseDate;
+    const future = !!date && date >= today;
+
+    const [existing] = await db
+      .select({ id: schema.books.id })
+      .from(schema.books)
+      .where(eq(schema.books.hardcoverId, id))
+      .limit(1);
+    if (existing) {
+      // Already on the watchlist, whoever added it. Refresh the date only; the book's own re-check does the rest.
+      await db
+        .update(schema.books)
+        .set({ expectedReleaseDate: date, status: statusFor(date), updatedAt: now })
+        .where(eq(schema.books.id, existing.id));
+      seen.add(id);
+      undated.delete(id);
+      updated++;
+      continue;
+    }
+
+    if (seen.has(id)) continue;
+
+    if (undated.has(id)) {
+      // Waiting from the first check: add it once it gets a future date, and stop waiting once it's dated in the past.
+      if (future) {
+        await upsertBook(detail, watch.id);
+        seen.add(id);
+        undated.delete(id);
+        added++;
+      } else if (date) {
+        seen.add(id);
+        undated.delete(id);
+      }
+      continue;
+    }
+
+    if (future) {
+      await upsertBook(detail, watch.id);
+      seen.add(id);
+      added++;
+      continue;
+    }
+
+    if (!date) {
+      if (firstCheck) {
+        if (includeReleased) {
+          await upsertBook(detail, watch.id);
+          seen.add(id);
+          added++;
+        } else {
+          undated.add(id);
+        }
+      } else if (includeTba) {
+        await upsertBook(detail, watch.id);
+        seen.add(id);
+        added++;
+      }
+      // Otherwise it's left alone for now, so it's picked up if the setting is turned on later.
+      continue;
+    }
+
+    // Already out.
+    if (firstCheck && !includeReleased) {
+      seen.add(id);
+      continue;
+    }
+    await upsertBook(detail, watch.id);
+    seen.add(id);
+    added++;
+  }
+
+  const memoryOut: AuthorMemory = { seen: [...seen], undated: [...undated] };
   await db
     .update(schema.authorWatches)
-    .set({ lastSyncedAt: new Date().toISOString() })
+    .set({ lastSyncedAt: now, knownBookIds: JSON.stringify(memoryOut) })
     .where(eq(schema.authorWatches.id, watch.id));
 
   return { added, updated };

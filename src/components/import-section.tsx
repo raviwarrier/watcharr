@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { notify } from "@/components/notify";
 import { Download, Loader2, Play, Square, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 type Job = {
   id: number;
@@ -44,7 +44,10 @@ export function ImportSection() {
   // Step 4: a job waiting to start.
   const [ready, setReady] = useState<{ jobId: number; total: number; noTitle: number } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Messages appear as toasts in the bottom-right corner.
+  const setMessage = (m: { tone: "ok" | "error"; text: string } | null) => {
+    if (m) notify(m.tone, m.text);
+  };
   // After each book is added, check Audiobookshelf and mark it as owned. On by default.
   const [reconcileAudio, setReconcileAudio] = useState(true);
   // Same for ebooks, from the uploaded Calibre copy. On by default.
@@ -173,12 +176,6 @@ export function ImportSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {message && (
-          <p role="status" className={cn("text-sm", message.tone === "error" ? "text-destructive" : "text-muted-foreground")}>
-            {message.text}
-          </p>
-        )}
-
         <div className="space-y-2 rounded-lg border p-4">
           <p className="text-sm font-medium">After each book is added</p>
           <label className="flex items-start gap-2 text-sm">

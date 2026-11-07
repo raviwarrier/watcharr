@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { notify } from "@/components/notify";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -46,7 +47,10 @@ export function ReviewDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Errors appear as toasts in the bottom-right corner.
+  const setError = (message: string | null) => {
+    if (message) notify("error", message);
+  };
   const name = SOURCE_NAME[source];
   const base = `/api/reconcile/${source}/review`;
 
@@ -197,11 +201,6 @@ export function ReviewDialog({
           </span>
         </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
 
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <label className="flex items-center gap-2">

@@ -5,8 +5,8 @@ import { Loader2, Link2, Unplug, RefreshCw, Upload, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { ReviewDialog } from "@/components/review-dialog";
+import { notify } from "@/components/notify";
 
 type Status = {
   configured: boolean;
@@ -51,11 +51,16 @@ export function ReconcileSection() {
   const [libraries, setLibraries] = useState<Library[] | null>(null);
   const [libraryId, setLibraryId] = useState("");
   const [busy, setBusy] = useState<"connect" | "run" | "disconnect" | null>(null);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Messages appear as toasts in the bottom-right corner.
+  const setMessage = (m: { tone: "ok" | "error"; text: string } | null) => {
+    if (m) notify(m.tone, m.text);
+  };
   const [reviewOpen, setReviewOpen] = useState(false);
 
   const [calibreBusy, setCalibreBusy] = useState<"upload" | "run" | "remove" | null>(null);
-  const [calibreMessage, setCalibreMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const setCalibreMessage = (m: { tone: "ok" | "error"; text: string } | null) => {
+    if (m) notify(m.tone, m.text);
+  };
   const [calibreReviewOpen, setCalibreReviewOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -230,12 +235,6 @@ export function ReconcileSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {message && (
-          <p role="status" className={cn("text-sm", message.tone === "error" ? "text-destructive" : "text-muted-foreground")}>
-            {message.text}
-          </p>
-        )}
-
         <div className="space-y-4 rounded-lg border p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-medium">Audiobookshelf</p>
@@ -356,11 +355,6 @@ export function ReconcileSection() {
             )}
           </div>
 
-          {calibreMessage && (
-            <p role="status" className={cn("text-sm", calibreMessage.tone === "error" ? "text-destructive" : "text-muted-foreground")}>
-              {calibreMessage.text}
-            </p>
-          )}
 
           {calibre?.hasCopy ? (
             <>

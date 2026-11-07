@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { notify } from "@/components/notify";
 import { CalendarDays, Check, Copy, Download, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +11,10 @@ export function CalendarMenu() {
   const [open, setOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Errors appear as toasts in the bottom-right corner.
+  const setError = (message: string | null) => {
+    if (message) notify("error", message);
+  };
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -100,11 +104,6 @@ export function CalendarMenu() {
             Calendar). Anyone with the link can read your watchlist, but can&apos;t change anything.
           </DialogDescription>
           {loading && <p className="text-sm text-muted-foreground">Getting the link…</p>}
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
           {url && (
             <div className="flex items-start gap-2">
               <code className="min-w-0 flex-1 break-all rounded-md border bg-muted px-3 py-2 font-mono text-xs select-all">{url}</code>

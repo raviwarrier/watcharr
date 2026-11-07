@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { notify } from "@/components/notify";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,10 @@ export default function LoginPage() {
   const router = useRouter();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Errors appear as toasts in the bottom-right corner.
+  const setError = (message: string | null) => {
+    if (message) notify("error", message);
+  };
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,11 +77,6 @@ export default function LoginPage() {
               aria-label="Access key"
               autoFocus
             />
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
             <Button type="submit" className="w-full" disabled={busy || !key.trim()}>
               {busy ? "Signing in…" : "Sign in"}
             </Button>

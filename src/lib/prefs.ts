@@ -25,6 +25,23 @@ export async function getRecheckInterval(): Promise<RecheckInterval> {
   return value && value in RECHECK_INTERVALS ? (value as RecheckInterval) : DEFAULT_RECHECK_INTERVAL;
 }
 
+export type AuthorFlag = "authorIncludeTba" | "authorIncludeReleased";
+
+/**
+ * Author watch options. Date TBA books are added by default. Books that are already out when you
+ * start watching an author are off by default; new releases are always added.
+ */
+const AUTHOR_FLAG_DEFAULTS: Record<AuthorFlag, boolean> = {
+  authorIncludeTba: true,
+  authorIncludeReleased: false,
+};
+
+export async function getAuthorFlag(flag: AuthorFlag): Promise<boolean> {
+  const value = await getSetting(flag);
+  if (value === null) return AUTHOR_FLAG_DEFAULTS[flag];
+  return value === "true";
+}
+
 export async function getAlertFlag(flag: AlertFlag): Promise<boolean> {
   const value = await getSetting(flag);
   if (value === null) return FLAG_DEFAULTS[flag];

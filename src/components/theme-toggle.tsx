@@ -32,11 +32,13 @@ function subscribe(callback: () => void) {
   };
 }
 
+/** Dark is the default. "System" is only used when the user picks it. */
+const DEFAULT_MODE: ThemeMode = "dark";
 const getSnapshot = (): ThemeMode => {
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === "light" || v === "dark" ? v : "system";
+  return v === "light" || v === "dark" || v === "system" ? v : DEFAULT_MODE;
 };
-const getServerSnapshot = (): ThemeMode => "system";
+const getServerSnapshot = (): ThemeMode => DEFAULT_MODE;
 
 export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -63,8 +65,7 @@ export function ThemeToggle() {
   }, [open]);
 
   function choose(next: ThemeMode) {
-    if (next === "system") localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, next);
+    localStorage.setItem(STORAGE_KEY, next);
     window.dispatchEvent(new Event(CHANGE_EVENT));
     setOpen(false);
   }

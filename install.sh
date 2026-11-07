@@ -46,6 +46,8 @@ current() { [ -f "$ENV_FILE" ] && grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d=
 CUR_PORT="$(current PORT)"
 CUR_DATA="$(current DB_DIR)"
 CUR_KEY="$(current APP_SECRET_KEY)"
+CUR_ACCESS_HASH="$(current ACCESS_KEY_SHA256)"
+CUR_CALENDAR_HASH="$(current CALENDAR_TOKEN_SHA256)"
 
 # ---------------------------------------------------------------- questions
 ask() {
@@ -94,11 +96,25 @@ if [ -n "$SECRET_KEY" ]; then
 elif [ -f "$DATA_VALUE/.secret-key" ]; then
   echo "Using the encryption key already in $DATA_VALUE/.secret-key."
 else
-  SECRET_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")"
+  SECRET_KEY="$(node -p "require('crypto').randomBytes(32).toString('base64')")"
   echo "Generated a new encryption key and saved it to .env.local."
 fi
 
-# Optional connections (saved encrypted through the app once it is running).
+# Access keys: created on first install only. Existing keys are kept, so nothing is shown again.
+ACCESS_KEY=""
+CALENDAR_TOKEN=""
+ACCESS_HASH="$CUR_ACCESS_HASH"
+CALENDAR_HASH="$CUR_CALENDAR_HASH"
+if [ -z "$ACCESS_HASH" ] || [ -z "$CALENDAR_HASH" ]; then
+  ACCESS_KEY="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
+  CALENDAR_TOKEN="$(node -p "require('crypto').randomBytes(32).toString('hex')")"
+  ACCESS_HASH="$(K="$ACCESS_KEY" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
+  CALENDAR_HASH="$(K="$CALENDAR_TOKEN" node -p "require('crypto').createHash('sha256').update(process.env.K).digest('hex')")"
+else
+  echo "Keeping the access key and calendar token already set up. They aren't shown again."
+fi
+
+# Optional connections (saved encrypted once the app is running, by signing in).
 HARDCOVER_TOKEN="$(ask_secret "Hardcover API token")"
 GOTIFY_URL="$(ask_optional "Gotify server URL")"
 GOTIFY_TOKEN=""
@@ -111,6 +127,8 @@ step "Writing .env.local"
   echo "PORT=$PORT_VALUE"
   echo "DB_DIR=$DATA_VALUE"
   if [ -n "$SECRET_KEY" ]; then echo "APP_SECRET_KEY=$SECRET_KEY"; fi
+  echo "ACCESS_KEY_SHA256=$ACCESS_HASH"
+  echo "CALENDAR_TOKEN_SHA256=$CALENDAR_HASH"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 echo "Saved $ENV_FILE"
@@ -134,6 +152,34 @@ fi
 step "Building Watcharr"
 npm run build
 
+# ---------------------------------------------------------------- show new keys (once)
+if [ -n "$ACCESS_KEY" ]; then
+  cat <<EOF
+
+==============================================================
+  Your Watcharr access keys. Save them now.
+==============================================================
+
+  ACCESS KEY (64 characters). You type this to sign in.
+    $ACCESS_KEY
+  Anyone with this key can see your watchlist and change settings.
+  Keep it private, and store it in a password manager.
+
+  CALENDAR TOKEN (64 characters). Only for calendar app subscriptions.
+    $CALENDAR_TOKEN
+  Subscribe to this URL. If the calendar app is on another device, replace
+  localhost with this computer's address:
+    http://localhost:$PORT_VALUE/api/calendar.ics?token=$CALENDAR_TOKEN
+
+  These are shown only once. Watcharr keeps only their hashes.
+  To replace them later, see "Resetting keys" in the README.
+==============================================================
+EOF
+  if [ "$YES" -eq 0 ]; then
+    read -r -p "Press Enter once you have saved them... " _ || true
+  fi
+fi
+
 # ---------------------------------------------------------------- start
 if [ "$NO_START" -eq 1 ]; then
   step "Done (not started, as requested)"
@@ -146,25 +192,50 @@ bash "$ROOT/start.sh"
 
 # ---------------------------------------------------------------- optional connections
 BASE="http://localhost:$PORT_VALUE"
+JAR="$(mktemp)"
+trap 'rm -f "$JAR"' EXIT
+
+SIGNED_IN=0
+if [ -n "$ACCESS_KEY" ] && { [ -n "$HARDCOVER_TOKEN" ] || [ -n "$GOTIFY_URL" ]; }; then
+  # Sign in with the key we just created, so the settings API accepts our writes.
+  LOGIN_BODY="$(K="$ACCESS_KEY" node -p 'JSON.stringify({key: process.env.K})')"
+  if curl -fsS -c "$JAR" -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' -d "$LOGIN_BODY" >/dev/null; then
+    SIGNED_IN=1
+  else
+    echo "Could not sign in to save the connection settings. Add them in Settings after signing in."
+  fi
+fi
+
 save_setting() {
-  KEY="$1" VAL="$2" node -e 'console.log(JSON.stringify({key: process.env.KEY, value: process.env.VAL}))' \
-    | curl -fsS -X POST "$BASE/api/settings" -H 'Content-Type: application/json' -d @- >/dev/null
+  local body
+  body="$(KEY="$1" VAL="$2" node -p 'JSON.stringify({key: process.env.KEY, value: process.env.VAL})')"
+  curl -fsS -b "$JAR" -X POST "$BASE/api/settings" -H 'Content-Type: application/json' -d "$body" >/dev/null
 }
 
 if [ -n "$HARDCOVER_TOKEN" ]; then
-  save_setting hardcoverApiKey "$HARDCOVER_TOKEN"
-  MESSAGE="$(curl -fsS -X POST "$BASE/api/settings/test" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).message))')"
-  echo "Hardcover: $MESSAGE"
+  if [ "$SIGNED_IN" -eq 1 ]; then
+    save_setting hardcoverApiKey "$HARDCOVER_TOKEN"
+    MESSAGE="$(curl -fsS -b "$JAR" -X POST "$BASE/api/settings/test" | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).message')"
+    echo "Hardcover: $MESSAGE"
+  else
+    echo "Hardcover token not saved. Add it in Settings after signing in."
+  fi
 fi
 if [ -n "$GOTIFY_URL" ]; then
-  save_setting gotifyUrl "$GOTIFY_URL"
-  if [ -n "$GOTIFY_TOKEN" ]; then save_setting gotifyToken "$GOTIFY_TOKEN"; fi
-  echo "Gotify settings saved. Use Send test in Settings to check them."
+  if [ "$SIGNED_IN" -eq 1 ]; then
+    save_setting gotifyUrl "$GOTIFY_URL"
+    if [ -n "$GOTIFY_TOKEN" ]; then save_setting gotifyToken "$GOTIFY_TOKEN"; fi
+    echo "Gotify settings saved. Use Send test in Settings to check them."
+  else
+    echo "Gotify settings not saved. Add them in Settings after signing in."
+  fi
 fi
 HARDCOVER_TOKEN=""
 GOTIFY_TOKEN=""
+ACCESS_KEY=""
+CALENDAR_TOKEN=""
 
-# ---------------------------------------------------------------- optional: systemd service (OFF)
+# ---------------------------------------------------------------- systemd service (OFF)
 # The recommended way to keep Watcharr running on Linux is PM2 (see ecosystem.config.js and the README).
 # The systemd block below is commented out on purpose. To run Watcharr as a systemd service instead,
 # uncomment every line from "SERVICE_FILE=" to "sudo systemctl enable --now watcharr" and run this
@@ -193,5 +264,5 @@ GOTIFY_TOKEN=""
 
 echo
 printf '\033[1;32m%s\033[0m\n' "Watcharr is running at $BASE"
-echo "Stop it with:  bash stop.sh"
+echo "Sign in with your access key. Stop it with:  bash stop.sh"
 echo "Start it with: bash start.sh"

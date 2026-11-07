@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BookOpen, CalendarDays, LayoutDashboard, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BookOpen, CalendarDays, LayoutDashboard, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -13,6 +13,16 @@ const LINKS = [
 
 export function SiteNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
+
+  // No header on the sign-in page.
+  if (pathname === "/login") return null;
 
   return (
     <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur-md">
@@ -47,6 +57,14 @@ export function SiteNav() {
 
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={signOut}
+            className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
           <a
             href="/api/calendar.ics"
             className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"

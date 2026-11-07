@@ -5,6 +5,8 @@
 .DESCRIPTION
   Asks for the settings it needs (with defaults), writes .env.local, installs dependencies,
   creates the database if there isn't one yet, builds the app, and starts it in the background.
+  On first install it also creates an access key and a calendar token, shows them once, and
+  stores only their hashes.
 
   Run it from the project folder:
       powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -32,13 +34,26 @@ $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 Set-Location $Root
 $EnvFile = Join-Path $Root ".env.local"
-$StateDir = Join-Path $Root ".watcharr"
 
 function Write-Step([string]$Message) { Write-Host "`n==> $Message" -ForegroundColor Cyan }
 
 function Invoke-Checked([string]$FilePath, [string[]]$Arguments) {
   & $FilePath @Arguments
   if ($LASTEXITCODE -ne 0) { throw "'$FilePath $($Arguments -join ' ')' failed with exit code $LASTEXITCODE." }
+}
+
+function New-HexSecret {
+  # 32 random bytes as 64 hex characters. Works on Windows PowerShell 5.1 and PowerShell 7.
+  return (node -p "require('crypto').randomBytes(32).toString('hex')").Trim()
+}
+
+function Get-Sha256Hex([string]$Value) {
+  $env:WATCHARR_HASH_INPUT = $Value
+  try {
+    return (node -p "require('crypto').createHash('sha256').update(process.env.WATCHARR_HASH_INPUT).digest('hex')").Trim()
+  } finally {
+    Remove-Item Env:WATCHARR_HASH_INPUT -ErrorAction SilentlyContinue
+  }
 }
 
 # ---------------------------------------------------------------- Node.js
@@ -58,7 +73,7 @@ Write-Host "Node.js $nodeVersion found."
 $current = @{}
 if (Test-Path $EnvFile) {
   foreach ($line in Get-Content $EnvFile) {
-    if ($line -match '^\s*([A-Z_]+)=(.*)$') { $current[$matches[1]] = $matches[2] }
+    if ($line -match '^\s*([A-Z_0-9]+)=(.*)$') { $current[$matches[1]] = $matches[2] }
   }
 }
 
@@ -107,16 +122,26 @@ if ($secretKey) {
 } elseif (Test-Path $keyFile) {
   Write-Host "Using the encryption key already in $keyFile."
 } else {
-  # Works on Windows PowerShell 5.1 too (no static GetBytes there).
-  $bytes = New-Object byte[] 32
-  $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-  $rng.GetBytes($bytes)
-  $rng.Dispose()
-  $secretKey = [Convert]::ToBase64String($bytes)
+  # The app expects this key in base64.
+  $secretKey = (node -p "require('crypto').randomBytes(32).toString('base64')").Trim()
   Write-Host "Generated a new encryption key and saved it to .env.local."
 }
 
-# Optional connections (saved encrypted through the app once it is running)
+# Access keys: created on first install only. Existing keys are kept, so nothing is shown again.
+$accessKey = ""
+$calendarToken = ""
+$accessHash = $current["ACCESS_KEY_SHA256"]
+$calendarHash = $current["CALENDAR_TOKEN_SHA256"]
+if (-not $accessHash -or -not $calendarHash) {
+  $accessKey = New-HexSecret
+  $calendarToken = New-HexSecret
+  $accessHash = Get-Sha256Hex $accessKey
+  $calendarHash = Get-Sha256Hex $calendarToken
+} else {
+  Write-Host "Keeping the access key and calendar token already set up. They aren't shown again."
+}
+
+# Optional connections (saved encrypted once the app is running, by signing in)
 $hardcoverToken = Read-OptionalSecret "Hardcover API token"
 $gotifyUrl = Read-OptionalText "Gotify server URL"
 $gotifyToken = if ($gotifyUrl) { Read-OptionalSecret "Gotify application token" } else { "" }
@@ -126,7 +151,9 @@ Write-Step "Writing .env.local"
 $lines = @(
   "# Written by install.ps1. Private to this machine; this file is gitignored.",
   "PORT=$portValue",
-  "DB_DIR=$dataValue"
+  "DB_DIR=$dataValue",
+  "ACCESS_KEY_SHA256=$accessHash",
+  "CALENDAR_TOKEN_SHA256=$calendarHash"
 )
 if ($secretKey) { $lines += "APP_SECRET_KEY=$secretKey" }
 Set-Content -Path $EnvFile -Value $lines -Encoding utf8
@@ -153,6 +180,30 @@ if (Test-Path $dbFile) {
 Write-Step "Building Watcharr"
 Invoke-Checked "npm" @("run", "build")
 
+# ---------------------------------------------------------------- show new keys (once)
+if ($accessKey) {
+  Write-Host ""
+  Write-Host "==============================================================" -ForegroundColor Yellow
+  Write-Host "  Your Watcharr access keys. Save them now." -ForegroundColor Yellow
+  Write-Host "==============================================================" -ForegroundColor Yellow
+  Write-Host ""
+  Write-Host "  ACCESS KEY (64 characters). You type this to sign in." -ForegroundColor Green
+  Write-Host "    $accessKey"
+  Write-Host "  Anyone with this key can see your watchlist and change settings."
+  Write-Host "  Keep it private, and store it in a password manager."
+  Write-Host ""
+  Write-Host "  CALENDAR TOKEN (64 characters). Only for calendar app subscriptions." -ForegroundColor Green
+  Write-Host "    $calendarToken"
+  Write-Host "  Subscribe to this URL. If the calendar app is on another device, replace"
+  Write-Host "  localhost with this computer's address:"
+  Write-Host "    http://localhost:$portValue/api/calendar.ics?token=$calendarToken"
+  Write-Host ""
+  Write-Host "  These are shown only once. Watcharr keeps only their hashes."
+  Write-Host "  To replace them later, see `"Resetting keys`" in the README."
+  Write-Host "=============================================================="
+  if (-not $Yes) { Read-Host "Press Enter once you have saved them" | Out-Null }
+}
+
 # ---------------------------------------------------------------- start
 if ($NoStart) {
   Write-Step "Done (not started, as requested)"
@@ -164,27 +215,49 @@ Write-Step "Starting Watcharr in the background"
 & (Join-Path $Root "start.ps1")
 if ($LASTEXITCODE -ne 0) { throw "Watcharr did not start. See .watcharr\app.err.log." }
 
-# ---------------------------------------------------------------- save optional connections
+# ---------------------------------------------------------------- optional connections
 $base = "http://localhost:$portValue"
+$session = $null
+if ($accessKey -and ($hardcoverToken -or $gotifyUrl)) {
+  # Sign in with the key we just created, so the settings API accepts our writes.
+  try {
+    $loginBody = @{ key = $accessKey } | ConvertTo-Json -Compress
+    Invoke-WebRequest -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" -Body $loginBody -SessionVariable session -UseBasicParsing | Out-Null
+  } catch {
+    Write-Host "Could not sign in to save the connection settings. Add them in Settings after signing in."
+    $session = $null
+  }
+}
+
 function Save-Setting([string]$Key, [string]$Value) {
   $body = @{ key = $Key; value = $Value } | ConvertTo-Json -Compress
-  Invoke-RestMethod -Method Post -Uri "$base/api/settings" -ContentType "application/json" -Body $body | Out-Null
+  Invoke-RestMethod -Method Post -Uri "$base/api/settings" -ContentType "application/json" -Body $body -WebSession $session | Out-Null
 }
 
 if ($hardcoverToken) {
-  Save-Setting "hardcoverApiKey" $hardcoverToken
-  $test = Invoke-RestMethod -Method Post -Uri "$base/api/settings/test"
-  Write-Host "Hardcover: $($test.message)"
+  if ($session) {
+    Save-Setting "hardcoverApiKey" $hardcoverToken
+    $test = Invoke-RestMethod -Method Post -Uri "$base/api/settings/test" -WebSession $session
+    Write-Host "Hardcover: $($test.message)"
+  } else {
+    Write-Host "Hardcover token not saved. Add it in Settings after signing in."
+  }
 }
 if ($gotifyUrl) {
-  Save-Setting "gotifyUrl" $gotifyUrl
-  if ($gotifyToken) { Save-Setting "gotifyToken" $gotifyToken }
-  Write-Host "Gotify settings saved. Use Send test in Settings to check them."
+  if ($session) {
+    Save-Setting "gotifyUrl" $gotifyUrl
+    if ($gotifyToken) { Save-Setting "gotifyToken" $gotifyToken }
+    Write-Host "Gotify settings saved. Use Send test in Settings to check them."
+  } else {
+    Write-Host "Gotify settings not saved. Add them in Settings after signing in."
+  }
 }
 $hardcoverToken = $null
 $gotifyToken = $null
+$accessKey = $null
+$calendarToken = $null
 
 Write-Host ""
 Write-Host "Watcharr is running at $base" -ForegroundColor Green
-Write-Host "Stop it with:  powershell -ExecutionPolicy Bypass -File .\stop.ps1"
+Write-Host "Sign in with your access key. Stop it with:  powershell -ExecutionPolicy Bypass -File .\stop.ps1"
 Write-Host "Start it with: powershell -ExecutionPolicy Bypass -File .\start.ps1"

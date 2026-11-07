@@ -3,6 +3,17 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.5.0] - 2026-11-07
+
+### Added
+- Access key. The install script creates a 64-character access key and shows it once. Only its hash is stored. Sign in with it at `/login`. Every page and API route requires a signed-in session.
+- Calendar token. A second 64-character token, shown once, for the calendar feed URL (`/api/calendar.ics?token=...`). Calendar apps can subscribe without signing in.
+- Sign out button, and a 30-day session.
+- Sign-in attempts are limited to five wrong keys per 15 minutes.
+
+### Changed
+- The install script signs in with the new access key to save optional connection settings.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

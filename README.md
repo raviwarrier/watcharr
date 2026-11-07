@@ -105,6 +105,23 @@ npm run dev
 
 This serves on http://localhost:4242 with hot reload.
 
+## Access keys
+
+Watcharr needs a key to sign in. The install script creates two 64-character keys the first time it runs and shows them once:
+
+- **Access key:** the password for the web app. Type it at the sign-in page. Anyone with it can see your watchlist and change settings.
+- **Calendar token:** used only in the calendar feed URL, for calendar apps: `http://localhost:4242/api/calendar.ics?token=...`. Replace `localhost` with the server's address when the calendar app is on another device.
+
+Watcharr stores only the SHA-256 hashes of these keys, in `.env.local`. Save the keys in a password manager when you see them.
+
+The sign-in session lasts 30 days. Use **Sign out** in the header to end it. Five wrong keys in a row lock sign-in for 15 minutes.
+
+### Resetting keys
+
+If you lose a key, or want new ones, delete the `ACCESS_KEY_SHA256` and `CALENDAR_TOKEN_SHA256` lines from `.env.local`, then run the install script again. Choose the defaults. The new keys are shown once. The old access key stops working right away, and calendar apps need the new feed URL.
+
+Your watchlist and settings aren't affected.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` if you want to change the defaults.

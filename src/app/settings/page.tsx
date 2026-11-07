@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CautionZone } from "@/components/caution-zone";
+import { ImportSection } from "@/components/import-section";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -491,6 +492,8 @@ export default function SettingsPage() {
           </section>
         );
       })}
+
+      <ImportSection />
 
       <CautionZone />
     </div>

@@ -2,6 +2,7 @@ import { getSetting, setSetting } from "@/lib/db";
 import { getAlertFlag, getRecheckInterval, RECHECK_INTERVALS } from "@/lib/prefs";
 import { recheckAllLinked } from "@/lib/recheck";
 import { sendGotify } from "@/lib/gotify";
+import { importTick, IMPORT_TICK_MS } from "@/lib/importer";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TICK_MS = 10 * 60 * 1000; // how often we check whether a run is due
@@ -20,6 +21,10 @@ export function startScheduler() {
   setInterval(() => {
     maybeRunScheduledRecheck().catch((err) => console.error("[scheduler] re-check failed:", err));
   }, TICK_MS);
+  // Library import worker: one book at a time, paced (see importer.ts).
+  setInterval(() => {
+    importTick().catch((err) => console.error("[import] step failed:", err));
+  }, IMPORT_TICK_MS);
 }
 
 /**

@@ -105,6 +105,16 @@ npm run dev
 
 This serves on http://localhost:4242 with hot reload.
 
+## Importing your library
+
+Settings → **Import your library** adds books from a list you keep elsewhere:
+
+- **Goodreads:** export your library (My Books → Export Library), then upload the file. Only books on the **wishlist** shelf are imported.
+- **Other CSV files:** upload, then choose the title, author, and ISBN columns.
+- **Hardcover:** read your "want to read" list directly, using the Hardcover token in Settings.
+
+Imports run one book at a time, so a list of about 275 books takes roughly 30 to 60 minutes. You get a Gotify message when an import finishes, if Gotify is set up. Books that couldn't be found are listed in the import, with a CSV you can download.
+
 ## Access keys
 
 Watcharr needs a key to sign in. The install script creates two 64-character keys the first time it runs and shows them once:

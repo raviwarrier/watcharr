@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.6.2] - 2026-11-07
+
+### Fixed
+- Stop scripts and the install script now stop a Watcharr server started by hand (for example with `next start`), not only one started by `start.sh` or `start.ps1`. Processes running from other folders are left alone.
+
 ## [0.6.1] - 2026-11-07
 
 ### Fixed

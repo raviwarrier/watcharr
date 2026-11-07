@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.6.4] - 2026-11-07
+
+### Fixed
+- `stop.sh` finds and stops a Watcharr server owned by another user on the port, using sudo (you may be asked for your password once). It still never stops anything that isn't a Next.js server on Watcharr's port.
+
 ## [0.6.3] - 2026-11-07
 
 ### Fixed

@@ -8,7 +8,7 @@ import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Toast } from "@/components/toast";
+import { notify } from "@/components/notify";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   BookOpen,
@@ -693,8 +693,13 @@ export default function DashboardPage() {
   const [hardcoverSet, setHardcoverSet] = useState(true);
   const [checking, setChecking] = useState<Set<number>>(new Set());
   const [pending, setPending] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: "ok" | "warn" | "error"; text: string } | null>(null);
+  // Messages appear as toasts in the bottom-right corner (see components/notify.tsx).
+  const setNotice = useCallback((n: { tone: "ok" | "warn" | "error"; text: string } | null) => {
+    if (n) notify(n.tone, n.text);
+  }, []);
+  const setError = useCallback((message: string | null) => {
+    if (message) notify("error", message);
+  }, []);
   /** Set when the user is linking an unlinked (hand-added) book to a Hardcover result. */
   const [matching, setMatching] = useState<Book | null>(null);
 
@@ -714,7 +719,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     let active = true;
@@ -730,7 +735,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [setError]);
 
   async function readError(res: Response): Promise<string> {
     const body = await res.json().catch(() => null);
@@ -1374,14 +1379,6 @@ export default function DashboardPage() {
       )}
 
       {/* Messages float in the bottom-right corner, so they never push the page around. */}
-      {(error || notice) && (
-        <Toast
-          tone={error ? "error" : notice!.tone}
-          text={error ?? notice!.text}
-          onDismiss={() => (error ? setError(null) : setNotice(null))}
-        />
-      )}
-
       {/* Popup for a title picked from an author card: the same card as the Books tab. */}
       <Dialog open={openBook !== null} onOpenChange={(open) => !open && setOpenBookId(null)}>
         <DialogContent className="max-w-sm p-0">

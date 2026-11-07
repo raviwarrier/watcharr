@@ -3,6 +3,12 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.16.2] - 2026-11-07
+
+### Changed
+- All messages are toasts in the bottom-right corner: sign-in errors, Settings saves and connection tests, Import, Reconciling Libraries, Caution zone, review and calendar errors, and dashboard messages. Colours and text are unchanged. Success and warnings clear after a few seconds; errors stay until dismissed.
+- The Hardcover setup prompt stays as a banner, since it remains until a token is added.
+
 ## [0.16.1] - 2026-11-07
 
 ### Changed

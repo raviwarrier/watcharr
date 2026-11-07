@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ComponentType } from "react";
+import { notify } from "@/components/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -158,7 +159,10 @@ function SecretField({
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState<"save" | "clear" | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Messages appear as toasts in the bottom-right corner.
+  const setMessage = (m: { tone: "ok" | "error"; text: string } | null) => {
+    if (m) notify(m.tone, m.text);
+  };
 
   async function save() {
     const value = draft.trim();
@@ -267,11 +271,6 @@ function SecretField({
         }}
       />
 
-      {message && (
-        <p className={cn("text-xs", message.tone === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
-          {message.text}
-        </p>
-      )}
     </div>
   );
 }
@@ -359,15 +358,18 @@ export default function SettingsPage() {
     };
   }, []);
 
+  /** Runs a connection test. The result is shown as a toast. */
   async function runTest(sectionId: string, endpoint: string) {
     setTests((t) => ({ ...t, [sectionId]: "running" }));
+    let result: TestResult;
     try {
       const res = await fetch(endpoint, { method: "POST" });
-      const body: TestResult = await res.json();
-      setTests((t) => ({ ...t, [sectionId]: body }));
+      result = await res.json();
     } catch {
-      setTests((t) => ({ ...t, [sectionId]: { ok: false, message: "Could not run the test." } }));
+      result = { ok: false, message: "Could not run the test." };
     }
+    notify(result.ok ? "ok" : "error", result.message);
+    setTests((t) => ({ ...t, [sectionId]: undefined }));
   }
 
   return (
@@ -426,24 +428,6 @@ export default function SettingsPage() {
             </header>
 
             <div className="space-y-6 p-5">
-              {(() => {
-                const result = tests[section.id];
-                if (!section.test || !result || result === "running") return null;
-                return (
-                  <div
-                    role="status"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
-                      result.ok
-                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        : "bg-destructive/10 text-destructive",
-                    )}
-                  >
-                    {result.ok ? <CheckCircle2 className="h-4 w-4" /> : null}
-                    {result.message}
-                  </div>
-                );
-              })()}
               {section.select && (
                 <div className="space-y-2">
                   <label htmlFor={section.select.key} className="text-sm font-medium">

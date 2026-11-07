@@ -3,6 +3,30 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.14.0] - 2026-11-07
+
+### Added
+- Watchlist has an All / Upcoming switch. Upcoming shows only books with a release date today or later.
+
+## [0.13.0] - 2026-11-07
+
+### Added
+- An X button clears the title, author, and search fields on the dashboard, the watchlist search, and the review search.
+
+## [0.12.0] - 2026-11-07
+
+### Changed
+- The calendar feed uses the expected release date for books that aren't out yet and have no audiobook date, since audiobooks usually come out the same day. Once a book is out, only its audiobook date counts.
+
+## [0.11.0] - 2026-11-07
+
+### Changed
+- The calendar feed (`calendar.ics`) lists only audiobook releases with a known date from today on. Books with no audiobook date, such as older books never released as audiobooks, are left out. Previously it listed every book with any publication date.
+- Watcharr now reads each audiobook edition's release date from Hardcover. Print and ebook dates are no longer used for the calendar.
+
+### Note
+- Books added before this version get their audiobook date on the next re-check. Until then they're missing from the calendar.
+
 ## [0.10.1] - 2026-11-07
 
 ### Fixed

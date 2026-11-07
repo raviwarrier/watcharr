@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 
 export type ReviewSource = "abs" | "calibre";
@@ -191,7 +191,7 @@ export function ReviewDialog({
         </DialogDescription>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input placeholder="Search by title or author" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search matches" />
+          <ClearableInput placeholder="Search by title or author" value={query} onChange={setQuery} aria-label="Search matches" wrapperClassName="flex-1" />
           <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
             {total === 0 ? "Nothing to review" : `${from}–${to} of ${total}`}
           </span>

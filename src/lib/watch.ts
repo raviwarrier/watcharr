@@ -8,6 +8,11 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Only writes the audiobook date when this lookup fetched it, so other lookups keep the stored date. */
+function audiobookDateValue(detail: BookDetail): { audiobookReleaseDate?: string | null } {
+  return detail.audiobookReleaseDate === undefined ? {} : { audiobookReleaseDate: detail.audiobookReleaseDate };
+}
+
 function statusFor(releaseDate: string | null): "released" | "upcoming" {
   return releaseDate && releaseDate <= todayIso() ? "released" : "upcoming";
 }
@@ -61,6 +66,7 @@ export async function upsertBook(detail: BookDetail, authorWatchId: number | nul
     author: detail.authors.join(", ") || "Unknown author",
     coverUrl: detail.coverUrl,
     expectedReleaseDate: detail.releaseDate,
+    ...audiobookDateValue(detail),
     status: statusFor(detail.releaseDate),
     ebookAvailable: availability.ebookAvailable,
     audiobookAvailable: availability.audiobookAvailable,
@@ -115,6 +121,7 @@ export async function watchBook(hardcoverId: number, replaceBookId?: number) {
         author: detail.authors.join(", ") || "Unknown author",
         coverUrl: detail.coverUrl,
         expectedReleaseDate: detail.releaseDate,
+        ...audiobookDateValue(detail),
         status: statusFor(detail.releaseDate),
         ebookAvailable: availability.ebookAvailable,
         audiobookAvailable: availability.audiobookAvailable,

@@ -100,13 +100,9 @@ Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui, Drizzle ORM wi
 
 See [SECURITY.md](SECURITY.md) for how secrets are handled and how to report a vulnerability.
 
-## Versioning
-
-Watcharr uses `X.Y.Z`. `Z` is for bug fixes, `Y` for new features, and `X` for breaking or major changes. Each release is in [CHANGELOG.md](CHANGELOG.md).
-
 ## Contributing
 
-Issues and pull requests are welcome. Keep changes focused, run `npm run lint` and `npm run build` before you open a pull request, and update the changelog for user-visible changes.
+Issues and pull requests are welcome. Keep changes focused, run `npm run lint` and `npm run build` before you open a pull request, and describe user-visible changes in the pull request.
 
 ## License
 

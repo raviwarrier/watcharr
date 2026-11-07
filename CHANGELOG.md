@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.12.0] - 2026-11-07
+
+### Changed
+- The calendar feed uses the expected release date for books that aren't out yet and have no audiobook date, since audiobooks usually come out the same day. Once a book is out, only its audiobook date counts.
+
 ## [0.11.0] - 2026-11-07
 
 ### Changed

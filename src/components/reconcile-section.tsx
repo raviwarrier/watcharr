@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Link2, Unplug, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Link2, Unplug, RefreshCw, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,14 @@ type Status = {
   review: number;
 };
 
+type CalibreStatus = {
+  hasCopy: boolean;
+  uploadedAt: string | null;
+  lastRun: string | null;
+  matched: number;
+  review: number;
+};
+
 type Library = { id: string; name: string };
 
 const selectClass = "h-9 w-full rounded-md border bg-background px-2 text-sm";
@@ -27,9 +35,14 @@ async function readError(res: Response): Promise<string> {
   return body?.error ?? `The server couldn't complete the request (error ${res.status}).`;
 }
 
-/** Settings > Reconciling libraries. The Audiobookshelf sub-section is the first library. */
+function reviewNotice(count: number) {
+  return `${count} match${count === 1 ? "" : "es"} need${count === 1 ? "s" : ""} a decision. These have the same title but a different author.`;
+}
+
+/** Settings > Reconciling libraries. Audiobookshelf (live connection) and Calibre (uploaded copy). */
 export function ReconcileSection() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [calibre, setCalibre] = useState<CalibreStatus | null>(null);
   const [mode, setMode] = useState<"apiKey" | "login">("apiKey");
   const [url, setUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -41,10 +54,24 @@ export function ReconcileSection() {
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
 
+  const [calibreBusy, setCalibreBusy] = useState<"upload" | "run" | "remove" | null>(null);
+  const [calibreMessage, setCalibreMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [calibreReviewOpen, setCalibreReviewOpen] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
   async function loadStatus() {
     try {
       const res = await fetch("/api/reconcile/abs/status", { cache: "no-store" });
       if (res.ok) setStatus(await res.json());
+    } catch {
+      // Keep the last status shown.
+    }
+  }
+
+  async function loadCalibreStatus() {
+    try {
+      const res = await fetch("/api/reconcile/calibre/status", { cache: "no-store" });
+      if (res.ok) setCalibre(await res.json());
     } catch {
       // Keep the last status shown.
     }
@@ -56,6 +83,12 @@ export function ReconcileSection() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: Status | null) => {
         if (active && data) setStatus(data);
+      })
+      .catch(() => {});
+    fetch("/api/reconcile/calibre/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: CalibreStatus | null) => {
+        if (active && data) setCalibre(data);
       })
       .catch(() => {});
     return () => {
@@ -128,6 +161,63 @@ export function ReconcileSection() {
     loadStatus();
   }
 
+  async function uploadCalibre() {
+    const file = fileInput.current?.files?.[0];
+    if (!file) {
+      setCalibreMessage({ tone: "error", text: "Choose your metadata.db file first." });
+      return;
+    }
+    setCalibreBusy("upload");
+    setCalibreMessage(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/reconcile/calibre/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error(await readError(res));
+      if (fileInput.current) fileInput.current.value = "";
+      setCalibreMessage({ tone: "ok", text: "Calibre library uploaded. Run Reconcile Calibre to check your books." });
+      loadCalibreStatus();
+    } catch (err) {
+      setCalibreMessage({ tone: "error", text: err instanceof Error ? err.message : "Upload failed." });
+    } finally {
+      setCalibreBusy(null);
+    }
+  }
+
+  async function reconcileCalibre() {
+    setCalibreBusy("run");
+    setCalibreMessage(null);
+    try {
+      const res = await fetch("/api/reconcile/calibre/run", { method: "POST" });
+      if (!res.ok) throw new Error(await readError(res));
+      const body = await res.json();
+      setCalibreMessage({
+        tone: "ok",
+        text: `Checked ${body.checked} books: ${body.matched} marked as owned as ebooks, ${body.review} to review, ${body.unmatched} not in the library.`,
+      });
+      loadCalibreStatus();
+    } catch (err) {
+      setCalibreMessage({ tone: "error", text: err instanceof Error ? err.message : "Reconciliation failed." });
+    } finally {
+      setCalibreBusy(null);
+    }
+  }
+
+  async function removeCalibre() {
+    setCalibreBusy("remove");
+    setCalibreMessage(null);
+    try {
+      const res = await fetch("/api/reconcile/calibre/remove", { method: "POST" });
+      if (!res.ok) throw new Error(await readError(res));
+      setCalibreMessage({ tone: "ok", text: "Calibre copy removed. Books keep their ownership marks." });
+      loadCalibreStatus();
+    } catch (err) {
+      setCalibreMessage({ tone: "error", text: err instanceof Error ? err.message : "Could not remove the copy." });
+    } finally {
+      setCalibreBusy(null);
+    }
+  }
+
   const canConnect =
     url.trim() !== "" && (mode === "apiKey" ? apiKey.trim() !== "" : username.trim() !== "" && password !== "");
 
@@ -167,9 +257,7 @@ export function ReconcileSection() {
               </p>
               {status.review > 0 && (
                 <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <span>
-                    {status.review} match{status.review === 1 ? "" : "es"} need{status.review === 1 ? "s" : ""} a decision. These have the same title but a different author.
-                  </span>
+                  <span>{reviewNotice(status.review)}</span>
                   <Button size="sm" variant="outline" onClick={() => setReviewOpen(true)} className="shrink-0">
                     Review matches
                   </Button>
@@ -192,7 +280,7 @@ export function ReconcileSection() {
             </p>
           )}
 
-          <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} onChanged={loadStatus} />
+          <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} onChanged={loadStatus} source="abs" />
 
           {(!status?.configured || libraries) && (
             <div className="space-y-3 border-t pt-4">
@@ -256,6 +344,69 @@ export function ReconcileSection() {
               </Button>
             </div>
           )}
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium">Calibre</p>
+            {calibre?.hasCopy && (
+              <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                Uploaded
+              </span>
+            )}
+          </div>
+
+          {calibreMessage && (
+            <p role="status" className={cn("text-sm", calibreMessage.tone === "error" ? "text-destructive" : "text-muted-foreground")}>
+              {calibreMessage.text}
+            </p>
+          )}
+
+          {calibre?.hasCopy ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {calibre.matched} owned as ebooks · {calibre.review} to review
+                {calibre.lastRun ? ` · last run ${new Date(calibre.lastRun).toLocaleString()}` : " · not run yet"}
+                {calibre.uploadedAt ? ` · uploaded ${new Date(calibre.uploadedAt).toLocaleString()}` : ""}
+              </p>
+              {calibre.review > 0 && (
+                <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span>{reviewNotice(calibre.review)}</span>
+                  <Button size="sm" variant="outline" onClick={() => setCalibreReviewOpen(true)} className="shrink-0">
+                    Review matches
+                  </Button>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={reconcileCalibre} disabled={calibreBusy !== null} className="gap-2">
+                  {calibreBusy === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Reconcile now
+                </Button>
+                <Button variant="outline" onClick={removeCalibre} disabled={calibreBusy !== null} className="gap-2">
+                  {calibreBusy === "remove" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Remove copy
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Calibre runs on your PC, so upload a copy of its library file (metadata.db) here. It is found in your Calibre
+              library folder. Only the book list is read, and your Calibre files are never changed.
+            </p>
+          )}
+
+          <ReviewDialog open={calibreReviewOpen} onOpenChange={setCalibreReviewOpen} onChanged={loadCalibreStatus} source="calibre" />
+
+          <div className="space-y-3 border-t pt-4">
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">{calibre?.hasCopy ? "Upload a newer copy" : "metadata.db file"}</span>
+              <Input type="file" accept=".db" ref={fileInput} />
+            </label>
+            <Button variant="outline" onClick={uploadCalibre} disabled={calibreBusy !== null} className="gap-2">
+              {calibreBusy === "upload" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              Upload
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

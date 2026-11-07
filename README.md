@@ -115,6 +115,16 @@ Settings → **Import your library** adds books from a list you keep elsewhere:
 
 Imports run one book at a time, so a list of about 275 books takes roughly 30 to 60 minutes. You get a Gotify message when an import finishes, if Gotify is set up. Books that couldn't be found are listed in the import, with a CSV you can download.
 
+## Reconciling libraries (Calibre)
+
+Settings → **Reconciling libraries** → **Calibre** marks the ebooks you already have.
+
+- Calibre keeps its library on your PC, which this server can't reach. So you upload a copy of `metadata.db` from your Calibre library folder. The copy is stored in Watcharr's data folder. Your Calibre files are never changed.
+- Click **Reconcile now** to check the watchlist against the copy. Books found by title and author are marked as owned ebooks.
+- Books with the same title but a different author go to **Review matches**. Confirm or reject them in bulk. Rejected matches aren't suggested again.
+- Re-upload the file after you add books in Calibre. Use **Remove copy** to delete it.
+- With **Reconcile ebooks** on (Settings → Import), books added by import are checked against the copy as they arrive.
+
 ## Access keys
 
 Watcharr needs a key to sign in. The install script creates two 64-character keys the first time it runs and shows them once:

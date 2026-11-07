@@ -3,6 +3,13 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.10.0] - 2026-11-07
+
+### Added
+- Calibre in Reconciling libraries. Upload a copy of your Calibre `metadata.db` and Watcharr marks books you already have as owned ebooks. Only the book list is read, and your Calibre files are never changed. Title-only matches go to the same review list as Audiobookshelf.
+- "Reconcile ebooks" toggle in Import (on by default). Books added by import are checked against the uploaded Calibre copy.
+- A book owned as both an ebook and an audiobook shows the "both" icon.
+
 ## [0.9.0] - 2026-11-07
 
 ### Added

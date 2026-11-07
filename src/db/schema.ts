@@ -45,6 +45,12 @@ export const books = sqliteTable("books", {
   absCheckedAt: text("abs_checked_at"),
   absTitle: text("abs_title"), // the title as Audiobookshelf has it, for review
   absAuthor: text("abs_author"),
+  // Calibre match: book id in the copy, how it matched (title_author | review | rejected), and the names as Calibre has them.
+  calibreBookId: integer("cal_book_id"),
+  calibreMatch: text("cal_match"),
+  calibreTitle: text("cal_title"),
+  calibreAuthor: text("cal_author"),
+  calibreCheckedAt: text("cal_checked_at"),
   lastCheckedAt: text("last_checked_at"), // ISO timestamp
   createdAt: text("created_at").notNull().$default(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$default(() => new Date().toISOString()),

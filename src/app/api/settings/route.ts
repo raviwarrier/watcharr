@@ -16,9 +16,10 @@ const KNOWN_KEYS = [
   "alertAudiobook",
   "alertScheduled",
   "reconcileAudiobooks",
+  "reconcileEbooks",
 ] as const;
 
-const BOOLEAN_KEYS = ["alertEbook", "alertAudiobook", "alertScheduled", "reconcileAudiobooks"] as const;
+const BOOLEAN_KEYS = ["alertEbook", "alertAudiobook", "alertScheduled", "reconcileAudiobooks", "reconcileEbooks"] as const;
 
 const saveSchema = z
   .object({

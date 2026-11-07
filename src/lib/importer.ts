@@ -5,6 +5,7 @@ import { sendGotify } from "@/lib/gotify";
 import { readCsvObjects, writeCsv } from "@/lib/csv";
 import { firstAuthor, surname, titleBase } from "@/lib/match";
 import { absSettings, reconcileBook } from "@/lib/reconcile";
+import { hasCalibreCopy, reconcileCalibreBook } from "@/lib/calibre";
 import { getSettingSync } from "@/lib/db";
 
 /**
@@ -247,6 +248,10 @@ async function processItem(item: ItemRow): Promise<void> {
     // A failure here does not affect the import.
     if (getSettingSync("reconcileAudiobooks") !== "false" && absSettings()) {
       await reconcileBook(result.book.id).catch(() => undefined);
+    }
+    // Same for ebooks, from the uploaded Calibre copy. On by default.
+    if (getSettingSync("reconcileEbooks") !== "false" && hasCalibreCopy()) {
+      await reconcileCalibreBook(result.book.id).catch(() => undefined);
     }
   }
 }

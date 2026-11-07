@@ -3,6 +3,18 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.15.1] - 2026-11-07
+
+### Fixed
+- Authors: Hardcover lists many old books without a release date. Those are no longer added as upcoming when you start watching an author. New books with no date are still added, if the Authors setting is on.
+- Authors: an author's card also lists books by that author that were added by hand, when they have a future date (for example Dark Union).
+- Authors: cards have a fixed height. Each shows up to three titles; See all books shows the rest.
+
+### Changed
+- Authors toolbar matches Books: search on the right, the grid/list switch beside it, and sort below. The grid/list switch works for authors.
+- Search placeholder: "Search your list for an author".
+- Settings are grouped into General, Books, and Authors.
+
 ## [0.15.0] - 2026-11-07
 
 ### Added

@@ -325,6 +325,11 @@ function ToggleRow({
   );
 }
 
+/** Heading that starts a group of settings: General, Books, or Authors. */
+function GroupHeading({ title }: { title: string }) {
+  return <h2 className="border-b pb-2 text-xl font-semibold tracking-tight">{title}</h2>;
+}
+
 export default function SettingsPage() {
   const [status, setStatus] = useState<Record<string, Status>>({});
   const [tests, setTests] = useState<Record<string, TestResult | "running" | undefined>>({});
@@ -385,6 +390,8 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+
+      <GroupHeading title="General" />
 
       {SECTIONS.map((section) => {
         const Icon = section.icon;
@@ -495,9 +502,13 @@ export default function SettingsPage() {
         );
       })}
 
+      <GroupHeading title="Books" />
+
       <ReconcileSection />
 
       <ImportSection />
+
+      <GroupHeading title="Authors" />
 
       <AuthorSettings />
 

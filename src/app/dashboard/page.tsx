@@ -136,6 +136,12 @@ const UPCOMING_SORTS: { value: SortKey; label: string }[] = [
 
 type AuthorSortKey = "author-asc" | "author-desc" | "closest" | "latest";
 
+/** True when one of the book's authors is this name. Book authors are stored as "A, B". */
+function sameAuthor(bookAuthor: string, name: string): boolean {
+  const target = name.trim().toLowerCase();
+  return bookAuthor.split(",").some((a) => a.trim().toLowerCase() === target);
+}
+
 const AUTHOR_SORTS: { value: AuthorSortKey; label: string }[] = [
   { value: "author-asc", label: "Author A–Z" },
   { value: "author-desc", label: "Author Z–A" },
@@ -385,6 +391,138 @@ function Cover({ src, alt, className }: { src: string | null; alt: string; class
         </div>
       )}
     </div>
+  );
+}
+
+/** Grid / list switch. Shared by the Books and Authors toolbars. */
+function LayoutToggle({ view, onChange }: { view: "grid" | "list"; onChange: (value: "grid" | "list") => void }) {
+  return (
+    <div role="group" aria-label="Layout" className="inline-flex shrink-0 gap-1 rounded-lg border bg-card p-1">
+      {(
+        [
+          { value: "grid", label: "Grid view", icon: LayoutGrid },
+          { value: "list", label: "List view", icon: List },
+        ] as const
+      ).map((v) => (
+        <button
+          key={v.value}
+          type="button"
+          aria-pressed={view === v.value}
+          aria-label={v.label}
+          title={v.label}
+          onClick={() => onChange(v.value)}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+            view === v.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          <v.icon className="h-4 w-4" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One author card. The height is fixed: the title list always takes the same space, showing up to three
+ * titles. Authors with more are reached through See all books.
+ */
+function AuthorCard({
+  w,
+  upcoming,
+  view,
+  checking,
+  onOpenBook,
+  onSeeAll,
+  onRecheck,
+  onRemove,
+}: {
+  w: AuthorWatch;
+  upcoming: Book[];
+  view: "grid" | "list";
+  checking: boolean;
+  onOpenBook: (id: number) => void;
+  onSeeAll: (w: AuthorWatch) => void;
+  onRecheck: (w: AuthorWatch) => void;
+  onRemove: (w: AuthorWatch) => void;
+}) {
+  const heading = (
+    <div className="min-w-0">
+      <h3 className="truncate font-semibold" title={w.name}>
+        {w.name}
+      </h3>
+      <p className="truncate text-sm text-muted-foreground">
+        {upcoming.length === 0 ? "No upcoming books" : `${upcoming.length} upcoming`}
+      </p>
+    </div>
+  );
+  const titles = (
+    <ul className="flex h-28 flex-col overflow-hidden">
+      {upcoming.slice(0, 3).map((b) => (
+        <li key={b.id} className="h-9 shrink-0">
+          <button
+            type="button"
+            onClick={() => onOpenBook(b.id)}
+            className="flex h-9 w-full items-center justify-between gap-3 rounded-md px-2 text-left text-sm hover:bg-accent"
+          >
+            <span className="min-w-0 truncate">{b.title}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {b.expectedReleaseDate ? formatDate(b.expectedReleaseDate) : "TBD"}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+  const actions = (
+    <div className={cn("flex items-center justify-between gap-2 px-4 py-3", view === "grid" ? "border-t" : "shrink-0 flex-nowrap border-l")}>
+      <Button variant="outline" size="sm" className="h-8" onClick={() => onSeeAll(w)}>
+        See all books
+      </Button>
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          onClick={() => onRecheck(w)}
+          disabled={checking}
+          aria-label={`Re-check ${w.name}`}
+          title="Re-check"
+        >
+          <RefreshCw className={cn("h-4 w-4", checking && "animate-spin")} />
+        </Button>
+        <Button
+          size="icon"
+          onClick={() => onRemove(w)}
+          className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
+          aria-label={`Remove author ${w.name}`}
+          title="Remove author"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (view === "list") {
+    return (
+      <Card className="flex flex-row items-stretch overflow-hidden shadow-none transition-shadow hover:shadow-md">
+        <div className="flex min-w-0 flex-1 gap-6 p-4">
+          <div className="w-56 shrink-0">{heading}</div>
+          <div className="min-w-0 flex-1">{titles}</div>
+        </div>
+        {actions}
+      </Card>
+    );
+  }
+  return (
+    <Card className="flex flex-col overflow-hidden shadow-none transition-shadow hover:shadow-md">
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        {heading}
+        {titles}
+      </div>
+      {actions}
+    </Card>
   );
 }
 
@@ -778,7 +916,11 @@ export default function DashboardPage() {
     const today = new Date().toLocaleDateString("en-CA");
     const rows = authorWatches.map((w) => {
       const upcoming = books
-        .filter((b) => b.authorWatchId === w.id && (!b.expectedReleaseDate || b.expectedReleaseDate >= today))
+        .filter((b) =>
+          b.expectedReleaseDate
+            ? b.expectedReleaseDate >= today && sameAuthor(b.author, w.name)
+            : b.authorWatchId === w.id,
+        )
         .sort((a, b) => {
           if (!a.expectedReleaseDate && !b.expectedReleaseDate) return a.title.localeCompare(b.title);
           if (!a.expectedReleaseDate) return 1;
@@ -1017,30 +1159,20 @@ export default function DashboardPage() {
       ) : section === "authors" ? (
         <section className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <ClearableInput
-                placeholder="Search authors"
-                value={authorQuery}
-                onChange={setAuthorQuery}
-                className="pl-9"
-                aria-label="Search authors"
-              />
+            <span />
+            <div className="flex items-center gap-2 sm:w-[28rem]">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <ClearableInput
+                  placeholder="Search your list for an author"
+                  value={authorQuery}
+                  onChange={setAuthorQuery}
+                  className="pl-9"
+                  aria-label="Search authors"
+                />
+              </div>
+              <LayoutToggle view={view} onChange={setStoredView} />
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              Sort
-              <select
-                value={authorSort}
-                onChange={(e) => setAuthorSort(e.target.value as AuthorSortKey)}
-                className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
-              >
-                {AUTHOR_SORTS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           {authorWatches.length === 0 ? (
@@ -1055,70 +1187,47 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-          ) : authorCards.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No matches.</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {authorCards.map(({ w, upcoming }) => (
-                <Card key={w.id} className="flex flex-col overflow-hidden shadow-none transition-shadow hover:shadow-md">
-                  <div className="flex flex-1 flex-col gap-3 p-4">
-                    <div className="min-w-0">
-                      <h3 className="truncate font-semibold" title={w.name}>
-                        {w.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {upcoming.length === 0 ? "No upcoming books" : `${upcoming.length} upcoming`}
-                      </p>
-                    </div>
-                    {upcoming.length > 0 && (
-                      <ul className="flex flex-col">
-                        {upcoming.map((b) => (
-                          <li key={b.id}>
-                            <button
-                              type="button"
-                              onClick={() => setOpenBookId(b.id)}
-                              className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
-                            >
-                              <span className="min-w-0 truncate">{b.title}</span>
-                              <span className="shrink-0 text-xs text-muted-foreground">
-                                {b.expectedReleaseDate ? formatDate(b.expectedReleaseDate) : "TBD"}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => seeAllBooks(w)}>
-                      See all books
-                    </Button>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => recheckAuthor(w)}
-                        disabled={checkingAuthors.has(w.id)}
-                        aria-label={`Re-check ${w.name}`}
-                        title="Re-check"
-                      >
-                        <RefreshCw className={cn("h-4 w-4", checkingAuthors.has(w.id) && "animate-spin")} />
-                      </Button>
-                      <Button
-                        size="icon"
-                        onClick={() => setPendingAuthor(w)}
-                        className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
-                        aria-label={`Remove author ${w.name}`}
-                        title="Remove author"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">
+                  Authors <span className="text-sm font-normal text-muted-foreground">{authorCards.length}</span>
+                </h2>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  Sort
+                  <select
+                    value={authorSort}
+                    onChange={(e) => setAuthorSort(e.target.value as AuthorSortKey)}
+                    className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
+                  >
+                    {AUTHOR_SORTS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {authorCards.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No matches.</p>
+              ) : (
+                <div className={view === "grid" ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-2"}>
+                  {authorCards.map(({ w, upcoming }) => (
+                    <AuthorCard
+                      key={w.id}
+                      w={w}
+                      upcoming={upcoming}
+                      view={view}
+                      checking={checkingAuthors.has(w.id)}
+                      onOpenBook={setOpenBookId}
+                      onSeeAll={seeAllBooks}
+                      onRecheck={recheckAuthor}
+                      onRemove={setPendingAuthor}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       ) : books.length === 0 ? (
@@ -1193,29 +1302,7 @@ export default function DashboardPage() {
                   aria-label="Search watchlist"
                 />
               </div>
-              <div role="group" aria-label="Layout" className="inline-flex shrink-0 gap-1 rounded-lg border bg-card p-1">
-                {(
-                  [
-                    { value: "grid", label: "Grid view", icon: LayoutGrid },
-                    { value: "list", label: "List view", icon: List },
-                  ] as const
-                ).map((v) => (
-                  <button
-                    key={v.value}
-                    type="button"
-                    aria-pressed={view === v.value}
-                    aria-label={v.label}
-                    title={v.label}
-                    onClick={() => setStoredView(v.value)}
-                    className={cn(
-                      "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                      view === v.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                    )}
-                  >
-                    <v.icon className="h-4 w-4" />
-                  </button>
-                ))}
-              </div>
+              <LayoutToggle view={view} onChange={setStoredView} />
               </div>
             </div>
 

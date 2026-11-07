@@ -56,9 +56,10 @@ export function AuthorSettings() {
             }}
           />
           <span>
-            <span className="block font-medium">Add books with a TBD date</span>
+            <span className="block font-medium">Add new books with no release date yet</span>
             <span className="block text-muted-foreground">
-              Add an author&apos;s new book even before Hardcover has a release date for it.
+              A new book by an author you watch goes on the watchlist even before it has a date. Hardcover also lists old
+              books with no date, so those are only added when the option below is on.
             </span>
           </span>
         </label>
@@ -75,7 +76,8 @@ export function AuthorSettings() {
           <span>
             <span className="block font-medium">Include books already out when I start watching an author</span>
             <span className="block text-muted-foreground">
-              Off: only books that come out after you start watching are added. New books are always added.
+              Off: when you start watching, only books with a future date are added. On: the author&apos;s older books,
+              including ones with no date, are added too.
             </span>
           </span>
         </label>

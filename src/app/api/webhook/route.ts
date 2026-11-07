@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "watcharr/0.15.0",
+        "User-Agent": "watcharr/0.15.1",
       },
       body: JSON.stringify({
         event: event ?? "book-release",

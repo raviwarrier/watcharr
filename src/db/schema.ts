@@ -29,7 +29,9 @@ export const books = sqliteTable("books", {
   coverUrl: text("cover_url"),
   synopsis: text("synopsis"),
   genres: text("genres"), // JSON string array
-  expectedReleaseDate: text("expected_release_date"), // ISO date string
+  expectedReleaseDate: text("expected_release_date"), // ISO date string (book-level, often the print date)
+  // Earliest release date of the book's audiobook editions on Hardcover. Null = no date known for audio.
+  audiobookReleaseDate: text("audiobook_release_date"),
   releaseDate: text("release_date"), // actual release date once out
   status: text("status").default("upcoming"), // upcoming | released | cancelled
   // Released AND listed on Hardcover in that format. Null = not checked yet.

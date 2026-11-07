@@ -12,12 +12,18 @@ function formatIcalDate(dateStr: string): string {
   return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-/** GET /api/calendar.ics - iCal feed of expected release dates */
+/**
+ * GET /api/calendar.ics - iCal feed of upcoming audiobook releases.
+ * Only books with a known audiobook release date from today on are included. Books with no
+ * audiobook date (never released as one, or no date announced) and past dates are left out.
+ */
 export async function GET() {
-  const books = await db
+  const today = new Date().toISOString().slice(0, 10);
+  const books = (await db
     .select()
     .from(schema.books)
-    .orderBy(schema.books.expectedReleaseDate);
+    .orderBy(schema.books.audiobookReleaseDate))
+    .filter((b) => b.audiobookReleaseDate !== null && b.audiobookReleaseDate >= today);
 
   const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 
@@ -32,10 +38,10 @@ export async function GET() {
   ];
 
   for (const b of books) {
-    if (!b.expectedReleaseDate) continue;
-    const start = formatIcalDate(b.expectedReleaseDate);
+    if (!b.audiobookReleaseDate) continue;
+    const start = formatIcalDate(b.audiobookReleaseDate);
     if (!start) continue;
-    const end = new Date(new Date(b.expectedReleaseDate).getTime() + 24 * 60 * 60 * 1000)
+    const end = new Date(new Date(b.audiobookReleaseDate).getTime() + 24 * 60 * 60 * 1000)
       .toISOString()
       .replace(/[-:]/g, "")
       .replace(/\.\d{3}Z$/, "Z");

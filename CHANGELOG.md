@@ -3,6 +3,15 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.11.0] - 2026-11-07
+
+### Changed
+- The calendar feed (`calendar.ics`) lists only audiobook releases with a known date from today on. Books with no audiobook date, such as older books never released as audiobooks, are left out. Previously it listed every book with any publication date.
+- Watcharr now reads each audiobook edition's release date from Hardcover. Print and ebook dates are no longer used for the calendar.
+
+### Note
+- Books added before this version get their audiobook date on the next re-check. Until then they're missing from the calendar.
+
 ## [0.10.1] - 2026-11-07
 
 ### Fixed

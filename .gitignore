@@ -39,6 +39,12 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Local helper scripts that aren't part of the project
+resume-claude.bat
+
+# Runtime state from start/stop scripts (PID and log files)
+/.watcharr/
+
 # Local AI tool configuration (machine-specific hook paths)
 .claude/
 .cursor/

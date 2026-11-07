@@ -3,6 +3,15 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.3.0] - 2026-11-07
+
+### Added
+- Install scripts (`install.sh` for macOS and Linux, `install.ps1` for Windows). They ask for the port, data folder, encryption key, and optional connections, install dependencies, create the database, build the app, and start it in the background.
+- Start and stop scripts (`start.sh`/`stop.sh` and `start.ps1`/`stop.ps1`).
+
+### Changed
+- The data folder can be set with `DB_DIR`, and `drizzle-kit` reads the same setting.
+
 ## [0.2.0] - 2026-11-07
 
 ### Added

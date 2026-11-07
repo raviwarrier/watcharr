@@ -30,21 +30,63 @@ A self-hosted tracker for books and authors. Add a book or follow an author, and
 
 ## Quick start
 
-Requirements: Node.js 20.9 or newer (Next.js 16 minimum), and npm.
+You need **Node.js 20.9 or newer** (from [nodejs.org](https://nodejs.org)). Everything else is handled by the install script.
+
+### Install (after cloning)
+
+**macOS or Linux**
 
 ```bash
-git clone https://github.com/<your-username>/watcharr.git
+git clone https://github.com/raviwarrier/watcharr.git
 cd watcharr
+bash install.sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+git clone https://github.com/raviwarrier/watcharr.git
+cd watcharr
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+The script asks a few questions. Press Enter to accept each default:
+
+| Question | Default | Notes |
+| --- | --- | --- |
+| Port | `4242` | Where the app is served. |
+| Data folder | `./data` | Holds the database and encryption key. Back this folder up. |
+| Encryption key | generated | Keeps saved secrets encrypted. Keep the same key for the same data. |
+| Hardcover API token | skipped | Optional. Stored encrypted once the app is running. |
+| Gotify URL and token | skipped | Optional. Stored encrypted once the app is running. |
+
+The script then installs dependencies, creates the database, builds the app, and starts it in the background. It takes a few minutes the first time. When it finishes, open http://localhost:4242.
+
+**You can change most of this later in the app's Settings page**, including the Hardcover token, Gotify settings, alert options, and the re-check schedule. The port, data folder, and encryption key live in `.env.local`. To change them, run the install script again or edit that file.
+
+To skip the questions, add `--yes` (macOS/Linux) or `-Yes` (Windows). To install without starting, add `--no-start` or `-NoStart`.
+
+### Start and stop
+
+Run these from the project folder. Both run in the background.
+
+| | macOS / Linux | Windows (PowerShell) |
+| --- | --- | --- |
+| Start | `bash start.sh` | `powershell -ExecutionPolicy Bypass -File .\start.ps1` |
+| Stop | `bash stop.sh` | `powershell -ExecutionPolicy Bypass -File .\stop.ps1` |
+
+`start.sh` and `start.ps1` build the app first if there's no build yet. Logs are in `.watcharr/app.log` and `.watcharr/app.err.log`.
+
+### Development
+
+For working on the code, run the dev server instead:
+
+```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:4242, then go to **Settings** and:
-
-1. Paste your **Hardcover API token** and click **Test connection**. You create the token in your Hardcover account settings.
-2. Optional: add a **Gotify server URL** and **application token**, then click **Send test**.
-
-For a production build, run `npm run build && npm start`. It also serves on port 4242.
+This serves on http://localhost:4242 with hot reload.
 
 ## Configuration
 

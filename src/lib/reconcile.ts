@@ -9,7 +9,8 @@ import { firstAuthor, surname, titleBase } from "@/lib/match";
  * The library is fetched once and cached for a few minutes, so matching many books costs
  * a handful of requests, not one per book.
  *  - Title and author match: stored as a match, and the audiobook is marked as owned.
- *  - Title-only match: stored for review, and ownership is not changed.
+ *  - Title-only match: stored for review. Ownership changes only when you confirm it.
+ *  - A match you reject is remembered, so it isn't suggested again.
  * Ownership is only ever set on, never cleared.
  */
 
@@ -88,18 +89,31 @@ export async function reconcileBook(bookId: number): Promise<"matched" | "review
   if (item && kind === "title_author") {
     await db
       .update(schema.books)
-      .set({ absItemId: item.id, absMatch: "title_author", absCheckedAt: now, ownedAudiobook: true, updatedAt: now })
+      .set({ absItemId: item.id, absMatch: "title_author", absTitle: item.title, absAuthor: item.author, absCheckedAt: now, ownedAudiobook: true, updatedAt: now })
       .where(eq(schema.books.id, bookId));
     return "matched";
   }
   if (item && kind === "review") {
+    // You already rejected this exact pairing: don't suggest it again.
+    if (book.absMatch === "rejected" && book.absItemId === item.id) {
+      await db.update(schema.books).set({ absCheckedAt: now, updatedAt: now }).where(eq(schema.books.id, bookId));
+      return "unmatched";
+    }
     await db
       .update(schema.books)
-      .set({ absItemId: item.id, absMatch: "review", absCheckedAt: now, updatedAt: now })
+      .set({ absItemId: item.id, absMatch: "review", absTitle: item.title, absAuthor: item.author, absCheckedAt: now, updatedAt: now })
       .where(eq(schema.books.id, bookId));
     return "review";
   }
-  await db.update(schema.books).set({ absMatch: null, absItemId: null, absCheckedAt: now, updatedAt: now }).where(eq(schema.books.id, bookId));
+  // No match this time. Keep a rejection, and clear anything else.
+  if (book.absMatch === "rejected") {
+    await db.update(schema.books).set({ absCheckedAt: now, updatedAt: now }).where(eq(schema.books.id, bookId));
+  } else {
+    await db
+      .update(schema.books)
+      .set({ absMatch: null, absItemId: null, absTitle: null, absAuthor: null, absCheckedAt: now, updatedAt: now })
+      .where(eq(schema.books.id, bookId));
+  }
   return "unmatched";
 }
 
@@ -125,3 +139,62 @@ export async function reconcileAll(): Promise<ReconcileSummary> {
   return summary;
 }
 
+/* ------------------------------------------------------------ review */
+
+export interface ReviewItem {
+  bookId: number;
+  title: string;
+  author: string;
+  absTitle: string | null;
+  absAuthor: string | null;
+  absItemUrl: string | null;
+}
+
+/** Books waiting for a decision, a page at a time, optionally filtered by text. */
+export function listReview(offset: number, limit: number, search: string): { total: number; items: ReviewItem[] } {
+  const abs = absSettings();
+  const term = `%${search.trim().toLowerCase()}%`;
+  const where = "abs_match = 'review' and (lower(title) like ? or lower(author) like ? or lower(coalesce(abs_title,'')) like ?)";
+  const total = (sqlite.prepare(`select count(*) as n from books where ${where}`).get(term, term, term) as { n: number }).n;
+  const rows = sqlite
+    .prepare(`select id, title, author, abs_title, abs_author, abs_item_id from books where ${where} order by title limit ? offset ?`)
+    .all(term, term, term, limit, offset) as {
+    id: number;
+    title: string;
+    author: string;
+    abs_title: string | null;
+    abs_author: string | null;
+    abs_item_id: string | null;
+  }[];
+  return {
+    total,
+    items: rows.map((r) => ({
+      bookId: r.id,
+      title: r.title,
+      author: r.author,
+      absTitle: r.abs_title,
+      absAuthor: r.abs_author,
+      absItemUrl: abs && r.abs_item_id ? `${abs.url}/item/${r.abs_item_id}` : null,
+    })),
+  };
+}
+
+/** Confirms or rejects review matches. Confirming marks the audiobook as owned. */
+export function decideReview(bookIds: number[], decision: "confirm" | "reject"): number {
+  const now = new Date().toISOString();
+  let changed = 0;
+  for (const id of bookIds) {
+    if (decision === "confirm") {
+      const info = sqlite
+        .prepare("update books set abs_match = 'title_author', owned_audiobook = 1, updated_at = ? where id = ? and abs_match = 'review'")
+        .run(now, id);
+      changed += info.changes;
+    } else {
+      const info = sqlite
+        .prepare("update books set abs_match = 'rejected', updated_at = ? where id = ? and abs_match = 'review'")
+        .run(now, id);
+      changed += info.changes;
+    }
+  }
+  return changed;
+}

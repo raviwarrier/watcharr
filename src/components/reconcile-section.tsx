@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ReviewDialog } from "@/components/review-dialog";
 
 type Status = {
   configured: boolean;
@@ -38,6 +39,7 @@ export function ReconcileSection() {
   const [libraryId, setLibraryId] = useState("");
   const [busy, setBusy] = useState<"connect" | "run" | "disconnect" | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   async function loadStatus() {
     try {
@@ -163,6 +165,16 @@ export function ReconcileSection() {
                 {status.matched} owned as audiobooks · {status.review} to review
                 {status.lastRun ? ` · last run ${new Date(status.lastRun).toLocaleString()}` : " · not run yet"}
               </p>
+              {status.review > 0 && (
+                <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    {status.review} match{status.review === 1 ? "" : "es"} need{status.review === 1 ? "s" : ""} a decision. These have the same title but a different author.
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => setReviewOpen(true)} className="shrink-0">
+                    Review matches
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button onClick={reconcileNow} disabled={busy !== null} className="gap-2">
                   {busy === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -179,6 +191,8 @@ export function ReconcileSection() {
               Not connected. Use an API key (recommended), or your username and password if you don&apos;t have a key.
             </p>
           )}
+
+          <ReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} onChanged={loadStatus} />
 
           {(!status?.configured || libraries) && (
             <div className="space-y-3 border-t pt-4">

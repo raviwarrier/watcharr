@@ -3,6 +3,15 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.9.0] - 2026-11-07
+
+### Added
+- Review matches in Reconciling libraries. Title-only matches are listed 20 at a time, with search, bulk confirm or reject, and Open in Audiobookshelf. Rejected matches aren't suggested again.
+
+### Changed
+- Books with an owned audiobook (marked by hand or found by reconciliation) are in Released, not Upcoming.
+- The Upcoming label is now Watchlist.
+
 ## [0.8.0] - 2026-11-07
 
 ### Added

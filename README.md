@@ -77,6 +77,23 @@ Run these from the project folder. Both run in the background.
 
 `start.sh` and `start.ps1` build the app first if there's no build yet. Logs are in `.watcharr/app.log` and `.watcharr/app.err.log`.
 
+### Run at boot with PM2 (recommended)
+
+[PM2](https://pm2.keymetrics.io) keeps Watcharr running, restarts it if it crashes, and can start it at boot. It works on macOS, Linux, and Windows. The `ecosystem.config.js` file in this repo is the PM2 setup.
+
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup     # prints one command for you to run; it sets up start at boot
+```
+
+Then use `pm2 status`, `pm2 logs watcharr`, `pm2 restart watcharr`, and `pm2 stop watcharr`. Run `npm run build` and then `pm2 restart watcharr` after you update the code.
+
+Stop the background copy from `start.sh` or `start.ps1` before you start it with PM2, so only one copy uses the port.
+
+On Linux, `install.sh` also has a systemd service block. It's commented out, and the comments explain how to switch it on.
+
 ### Development
 
 For working on the code, run the dev server instead:

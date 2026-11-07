@@ -164,6 +164,33 @@ fi
 HARDCOVER_TOKEN=""
 GOTIFY_TOKEN=""
 
+# ---------------------------------------------------------------- optional: systemd service (OFF)
+# The recommended way to keep Watcharr running on Linux is PM2 (see ecosystem.config.js and the README).
+# The systemd block below is commented out on purpose. To run Watcharr as a systemd service instead,
+# uncomment every line from "SERVICE_FILE=" to "sudo systemctl enable --now watcharr" and run this
+# script again. Stop the background copy first (bash stop.sh) so the port is free.
+#
+# SERVICE_FILE=/etc/systemd/system/watcharr.service
+# sudo tee "$SERVICE_FILE" >/dev/null <<UNIT
+# [Unit]
+# Description=Watcharr
+# After=network-online.target
+# Wants=network-online.target
+#
+# [Service]
+# Type=simple
+# User=$USER
+# WorkingDirectory=$ROOT
+# ExecStart=$(command -v node) $ROOT/node_modules/next/dist/bin/next start -p $PORT_VALUE
+# Restart=on-failure
+# RestartSec=5
+#
+# [Install]
+# WantedBy=multi-user.target
+# UNIT
+# sudo systemctl daemon-reload
+# sudo systemctl enable --now watcharr
+
 echo
 printf '\033[1;32m%s\033[0m\n' "Watcharr is running at $BASE"
 echo "Stop it with:  bash stop.sh"

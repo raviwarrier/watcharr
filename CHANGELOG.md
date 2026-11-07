@@ -3,6 +3,12 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.4.0] - 2026-11-07
+
+### Added
+- `ecosystem.config.js` for running Watcharr with PM2 on macOS, Linux, and Windows. PM2 can start it at boot.
+- A systemd service block in `install.sh`. It's commented out, and the comments explain how to turn it on.
+
 ## [0.3.1] - 2026-11-07
 
 ### Fixed

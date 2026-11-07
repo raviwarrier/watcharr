@@ -45,9 +45,18 @@ export function ImportSection() {
   const [ready, setReady] = useState<{ jobId: number; total: number; noTitle: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // After each book is added, check Audiobookshelf and mark it as owned. On by default.
+  const [reconcileAudio, setReconcileAudio] = useState(true);
 
   useEffect(() => {
     let active = true;
+    fetch("/api/settings", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: { key: string; masked: string | null }[]) => {
+        const row = rows.find((r) => r.key === "reconcileAudiobooks");
+        if (active && row?.masked) setReconcileAudio(row.masked !== "false");
+      })
+      .catch(() => {});
     fetch("/api/import/jobs", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data: Job[]) => {
@@ -165,6 +174,37 @@ export function ImportSection() {
             {message.text}
           </p>
         )}
+
+        <div className="space-y-2 rounded-lg border p-4">
+          <p className="text-sm font-medium">After each book is added</p>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={reconcileAudio}
+              onChange={async (e) => {
+                const next = e.target.checked;
+                setReconcileAudio(next);
+                await fetch("/api/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ key: "reconcileAudiobooks", value: next ? "true" : "false" }),
+                });
+              }}
+            />
+            <span>
+              <span className="block font-medium">Reconcile audiobooks</span>
+              <span className="block text-muted-foreground">Check Audiobookshelf and mark the book as owned if it&apos;s already in your library. Needs Audiobookshelf connected in Reconciling libraries.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" className="mt-1" disabled />
+            <span>
+              <span className="block font-medium">Reconcile ebooks (coming later)</span>
+              <span className="block">Calibre support is planned.</span>
+            </span>
+          </label>
+        </div>
 
         <div className="space-y-3 rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">

@@ -46,6 +46,7 @@ type Book = {
   appleAudiobookUrl?: string | null;
   ownedEbook?: boolean;
   ownedAudiobook?: boolean;
+  absItemUrl?: string | null;
   lastCheckedAt: string | null;
   createdAt?: string | null;
 };
@@ -231,11 +232,14 @@ function FormatChip({
   icon: Icon,
   found,
   url,
+  appUrl,
 }: {
   label: string;
   icon: typeof FileText;
   found: boolean | null;
   url: string | null;
+  /** Link into another app, such as the book in Audiobookshelf. */
+  appUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -334,6 +338,20 @@ function FormatChip({
                   <ExternalLink className="h-3.5 w-3.5" />
                   Open link
                 </Button>
+                {appUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 justify-start gap-2 text-xs"
+                    onClick={() => {
+                      window.open(appUrl, "_blank", "noopener,noreferrer");
+                      setOpen(false);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open in Audiobookshelf
+                  </Button>
+                )}
               </>
             ) : (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">No link yet. Re-check the book to find one.</p>
@@ -971,7 +989,7 @@ export default function DashboardPage() {
 
                         <div className="flex flex-wrap gap-1.5">
                           <FormatChip label="Ebook" icon={FileText} found={b.ebookAvailable} url={hardcoverUrl} />
-                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} />
+                          <FormatChip label="Audiobook" icon={Headphones} found={b.audiobookAvailable} url={audiobookUrl} appUrl={b.absItemUrl ?? null} />
                         </div>
 
                       </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { absSettings } from "@/lib/reconcile";
 
 /**
  * GET /api/books - list the watchlist.
@@ -9,5 +10,11 @@ import { desc } from "drizzle-orm";
  */
 export async function GET() {
   const rows = await db.select().from(schema.books).orderBy(desc(schema.books.createdAt));
-  return NextResponse.json(rows, { headers: { "Cache-Control": "no-store" } });
+  // Link each matched book to its page in Audiobookshelf.
+  const abs = absSettings();
+  const withLinks = rows.map((b) => ({
+    ...b,
+    absItemUrl: abs && b.absItemId ? `${abs.url}/item/${b.absItemId}` : null,
+  }));
+  return NextResponse.json(withLinks, { headers: { "Cache-Control": "no-store" } });
 }

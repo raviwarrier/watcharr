@@ -3,6 +3,16 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.8.0] - 2026-11-07
+
+### Added
+- Reconciling libraries section in Settings, with an Audiobookshelf connection. Sign in with an API key (recommended) or a username and password. The password is used once to get a token and isn't stored.
+- Audiobookshelf is checked by its status endpoint and app name before anything is saved. Addresses on cloud metadata services are refused.
+- Books found in your Audiobookshelf library are marked as owned as audiobooks. Matches are on title and author. Title-only matches are kept for review and don't change ownership.
+- Reconcile audiobooks toggle in the import section (on by default). Each imported book is checked after it's added.
+- Reconcile now checks the whole watchlist.
+- Open in Audiobookshelf in the audiobook menu, for books with a match.
+
 ## [0.7.0] - 2026-11-07
 
 ### Added

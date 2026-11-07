@@ -27,6 +27,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  FileUser,
   Trash2,
   User,
   XCircle,
@@ -52,7 +53,14 @@ type Book = {
   createdAt?: string | null;
 };
 
-type AuthorWatch = { id: number; hardcoverAuthorId: number; name: string; lastSyncedAt: string | null };
+type AuthorWatch = {
+  id: number;
+  hardcoverAuthorId: number;
+  name: string;
+  lastSyncedAt: string | null;
+  slug: string | null;
+  imageUrl: string | null;
+};
 
 type BookCandidate = {
   hardcoverId: number;
@@ -446,16 +454,48 @@ function AuthorCard({
   onRecheck: (w: AuthorWatch) => void;
   onRemove: (w: AuthorWatch) => void;
 }) {
-  const heading = (
-    <div className="min-w-0">
-      <h3 className="truncate font-semibold" title={w.name}>
-        {w.name}
-      </h3>
-      <p className="truncate text-sm text-muted-foreground">
-        {upcoming.length === 0 ? "No upcoming books" : `${upcoming.length} upcoming`}
-      </p>
+  // Profile picture, framed like a book cover. Falls back to the person icon.
+  const picture = (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted",
+        view === "grid" ? "h-16 w-12" : "h-14 w-10",
+      )}
+    >
+      {w.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={w.imageUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <User className="h-5 w-5 text-muted-foreground" />
+      )}
     </div>
   );
+  const heading = (
+    <div className="flex min-w-0 items-center gap-3">
+      {picture}
+      <div className="min-w-0">
+        <h3 className="truncate pr-10 font-semibold" title={w.name}>
+          {w.name}
+        </h3>
+        <p className="truncate text-sm text-muted-foreground">
+          {upcoming.length === 0 ? "No upcoming books" : `${upcoming.length} upcoming`}
+        </p>
+      </div>
+    </div>
+  );
+  // Top-right link to the author's Hardcover page, placed like the ownership button on book cards.
+  const profileLink = w.slug ? (
+    <a
+      href={`https://hardcover.app/authors/${w.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`See details for ${w.name} on Hardcover`}
+      title="See details"
+      className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border bg-card transition-colors hover:bg-accent"
+    >
+      <FileUser className="h-4 w-4" />
+    </a>
+  ) : null;
   const titles = (
     <ul className="flex h-28 flex-col overflow-hidden">
       {upcoming.slice(0, 3).map((b) => (
@@ -506,9 +546,10 @@ function AuthorCard({
 
   if (view === "list") {
     return (
-      <Card className="flex flex-row items-stretch overflow-hidden shadow-none transition-shadow hover:shadow-md">
+      <Card className="relative flex flex-row items-stretch overflow-hidden shadow-none transition-shadow hover:shadow-md">
+        {profileLink}
         <div className="flex min-w-0 flex-1 gap-6 p-4">
-          <div className="w-56 shrink-0">{heading}</div>
+          <div className="w-64 shrink-0">{heading}</div>
           <div className="min-w-0 flex-1">{titles}</div>
         </div>
         {actions}
@@ -516,7 +557,8 @@ function AuthorCard({
     );
   }
   return (
-    <Card className="flex flex-col overflow-hidden shadow-none transition-shadow hover:shadow-md">
+    <Card className="relative flex flex-col overflow-hidden shadow-none transition-shadow hover:shadow-md">
+      {profileLink}
       <div className="flex flex-1 flex-col gap-3 p-4">
         {heading}
         {titles}

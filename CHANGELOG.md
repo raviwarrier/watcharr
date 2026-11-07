@@ -3,6 +3,15 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.16.0] - 2026-11-07
+
+### Added
+- Author cards show the author's Hardcover profile picture, framed like a book cover. A person icon is shown when there's no picture.
+- An icon button at the top right of each author card opens the author's Hardcover page.
+
+### Note
+- The author picture and link use Hardcover fields that haven't been checked against the live API. Re-check a watched author to fill them in.
+
 ## [0.15.1] - 2026-11-07
 
 ### Fixed

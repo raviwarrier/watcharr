@@ -78,6 +78,8 @@ addBookColumn("owned_ebook", "integer NOT NULL DEFAULT 0");
 addBookColumn("owned_audiobook", "integer NOT NULL DEFAULT 0");
 addBookColumn("audiobook_release_date", "text");
 addColumn("author_watches", "known_book_ids", "text");
+addColumn("author_watches", "slug", "text");
+addColumn("author_watches", "image_url", "text");
 // Audiobookshelf and Calibre match columns.
 for (const [column, type] of [["abs_item_id", "text"], ["abs_match", "text"], ["abs_checked_at", "text"], ["abs_title", "text"], ["abs_author", "text"], ["cal_book_id", "integer"], ["cal_match", "text"], ["cal_title", "text"], ["cal_author", "text"], ["cal_checked_at", "text"]] as const) {
   addBookColumn(column, type);

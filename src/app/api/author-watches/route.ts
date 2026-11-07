@@ -11,6 +11,8 @@ export async function GET() {
       hardcoverAuthorId: schema.authorWatches.hardcoverAuthorId,
       name: schema.authorWatches.name,
       lastSyncedAt: schema.authorWatches.lastSyncedAt,
+      slug: schema.authorWatches.slug,
+      imageUrl: schema.authorWatches.imageUrl,
       createdAt: schema.authorWatches.createdAt,
     })
     .from(schema.authorWatches)

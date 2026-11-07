@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
-import { availabilityFor, getAuthorBooks, getBookDetail, type BookDetail } from "@/lib/hardcover";
+import { availabilityFor, getAuthorBooks, getAuthorProfile, getBookDetail, type BookDetail } from "@/lib/hardcover";
 import { getAuthorFlag } from "@/lib/prefs";
 import { findAppleAudiobook } from "@/lib/itunes";
 
@@ -191,6 +191,15 @@ export async function syncAuthorWatch(authorWatchId: number) {
     .where(eq(schema.authorWatches.id, authorWatchId))
     .limit(1);
   if (!watch) return { added: 0, updated: 0 };
+
+  // Profile link and picture. A failure here must not stop the book check.
+  const profile = await getAuthorProfile(watch.hardcoverAuthorId).catch(() => null);
+  if (profile) {
+    await db
+      .update(schema.authorWatches)
+      .set({ slug: profile.slug, imageUrl: profile.imageUrl })
+      .where(eq(schema.authorWatches.id, watch.id));
+  }
 
   const books = await getAuthorBooks(watch.hardcoverAuthorId);
   const includeTba = await getAuthorFlag("authorIncludeTba");

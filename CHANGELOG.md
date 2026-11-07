@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.16.1] - 2026-11-07
+
+### Changed
+- Dashboard messages (success, warnings, errors) appear as a toast in the bottom-right corner. They no longer push the page up and down. Success and warning messages clear after a few seconds; errors stay until dismissed.
+
 ## [0.16.0] - 2026-11-07
 
 ### Added

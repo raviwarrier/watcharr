@@ -8,6 +8,7 @@ import { ClearableInput } from "@/components/ui/clearable-input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Toast } from "@/components/toast";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   BookOpen,
@@ -996,12 +997,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Find a book or author to track</p>
       </div>
 
-      {error && (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
       {!hardcoverSet && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           <span>
@@ -1010,23 +1005,6 @@ export default function DashboardPage() {
           <Button asChild size="sm" variant="outline">
             <Link href="/settings">Open Settings</Link>
           </Button>
-        </div>
-      )}
-
-      {notice && (
-        <div
-          role="status"
-          className={cn(
-            "flex items-start justify-between gap-4 rounded-lg border px-4 py-3 text-sm",
-            notice.tone === "ok" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200",
-            notice.tone === "warn" && "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200",
-            notice.tone === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
-          )}
-        >
-          <span>{notice.text}</span>
-          <button onClick={() => setNotice(null)} className="shrink-0 opacity-70 hover:opacity-100" aria-label="Dismiss">
-            ✕
-          </button>
         </div>
       )}
 
@@ -1393,6 +1371,15 @@ export default function DashboardPage() {
             </div>
           </section>
         </>
+      )}
+
+      {/* Messages float in the bottom-right corner, so they never push the page around. */}
+      {(error || notice) && (
+        <Toast
+          tone={error ? "error" : notice!.tone}
+          text={error ?? notice!.text}
+          onDismiss={() => (error ? setError(null) : setNotice(null))}
+        />
       )}
 
       {/* Popup for a title picked from an author card: the same card as the Books tab. */}

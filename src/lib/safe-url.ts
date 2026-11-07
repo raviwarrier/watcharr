@@ -24,7 +24,7 @@ export function checkServiceUrl(raw: string): string {
   try {
     url = new URL(raw.trim());
   } catch {
-    throw new Error("That isn't a valid address. Use a full address such as https://abs.example.com or http://192.168.68.102:13378.");
+    throw new Error("That isn't a valid address. Use a full address such as https://abs.example.com or http://192.168.1.50:13378.");
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("The address must start with http:// or https://.");

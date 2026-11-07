@@ -185,7 +185,7 @@ export function ReconcileSection() {
               <label className="block space-y-1 text-sm">
                 <span className="font-medium">Address</span>
                 <Input
-                  placeholder="https://abs.example.com or http://192.168.68.102:13378"
+                  placeholder="https://abs.example.com or http://192.168.1.50:13378"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   spellCheck={false}

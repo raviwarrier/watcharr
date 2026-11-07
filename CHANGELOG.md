@@ -3,6 +3,13 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.6.1] - 2026-11-07
+
+### Fixed
+- A missing Hardcover token now returns a clear 400 with the message "Hardcover token not set. Add it in Settings." instead of a 502.
+- The dashboard shows a banner with a link to Settings when the Hardcover token isn't set.
+- When the server returns an error without a readable message (for example, a tunnel's 502 page), the dashboard explains that instead of showing "Request failed (502)".
+
 ## [0.6.0] - 2026-11-07
 
 ### Added

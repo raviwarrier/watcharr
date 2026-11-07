@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   BookOpen,
@@ -55,12 +56,20 @@ type BookCandidate = {
 
 type AuthorCandidate = { hardcoverAuthorId: number; name: string; booksCount: number | null };
 
-async function fetchLists(): Promise<{ books: Book[]; authors: AuthorWatch[] }> {
-  const [b, a] = await Promise.all([
+async function fetchLists(): Promise<{ books: Book[]; authors: AuthorWatch[]; hardcoverSet: boolean }> {
+  const [b, a, s] = await Promise.all([
     fetch("/api/books", { cache: "no-store" }).then((r) => r.json()),
     fetch("/api/author-watches", { cache: "no-store" }).then((r) => r.json()),
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .catch(() => []),
   ]);
-  return { books: Array.isArray(b) ? b : [], authors: Array.isArray(a) ? a : [] };
+  const hardcover = Array.isArray(s) ? s.find((row: { key: string }) => row.key === "hardcoverApiKey") : undefined;
+  return {
+    books: Array.isArray(b) ? b : [],
+    authors: Array.isArray(a) ? a : [],
+    hardcoverSet: hardcover?.isSet === true,
+  };
 }
 
 type BooksView = "grid" | "list";
@@ -304,6 +313,7 @@ export default function DashboardPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [authorWatches, setAuthorWatches] = useState<AuthorWatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hardcoverSet, setHardcoverSet] = useState(true);
   const [checking, setChecking] = useState<Set<number>>(new Set());
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -321,6 +331,7 @@ export default function DashboardPage() {
       const data = await fetchLists();
       setBooks(data.books);
       setAuthorWatches(data.authors);
+      setHardcoverSet(data.hardcoverSet);
     } catch {
       setError("Could not load your watchlist.");
     } finally {
@@ -335,6 +346,7 @@ export default function DashboardPage() {
         if (!active) return;
         setBooks(data.books);
         setAuthorWatches(data.authors);
+        setHardcoverSet(data.hardcoverSet);
       })
       .catch(() => active && setError("Could not load your watchlist."))
       .finally(() => active && setLoading(false));
@@ -345,7 +357,11 @@ export default function DashboardPage() {
 
   async function readError(res: Response): Promise<string> {
     const body = await res.json().catch(() => null);
-    return body?.error ?? `Request failed (${res.status})`;
+    if (body?.error) return body.error;
+    if (res.status >= 500) {
+      return `The server couldn't complete the request (error ${res.status}). Check that Watcharr is running and reachable.`;
+    }
+    return `Request failed (${res.status}).`;
   }
 
   async function search(e: FormEvent<HTMLFormElement>) {
@@ -521,6 +537,17 @@ export default function DashboardPage() {
       {error && (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {!hardcoverSet && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          <span>
+            Searching and release dates need your Hardcover API token. Add it in Settings to start.
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/settings">Open Settings</Link>
+          </Button>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getBookDetail, HardcoverError } from "@/lib/hardcover";
+import { getBookDetail, HardcoverError, HardcoverNotConfiguredError } from "@/lib/hardcover";
 import { upsertBook } from "@/lib/watch";
 import { sendGotify } from "@/lib/gotify";
 import { getAlertFlag } from "@/lib/prefs";
@@ -40,6 +40,7 @@ export async function recheckBook(bookId: number): Promise<RecheckOutcome> {
   try {
     detail = await getBookDetail(existing.hardcoverId);
   } catch (err) {
+    if (err instanceof HardcoverNotConfiguredError) throw new RecheckError(err.message, 400);
     if (err instanceof HardcoverError) throw new RecheckError(err.message, 502);
     throw new RecheckError("Re-check failed", 500);
   }

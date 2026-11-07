@@ -44,6 +44,9 @@ export interface BookDetail {
 
 class HardcoverError extends Error {}
 
+/** The token hasn't been saved yet. This is a setup problem, not a Hardcover outage. */
+export class HardcoverNotConfiguredError extends HardcoverError {}
+
 /** Hardcover labels audiobook editions "Listened" in reading_format. */
 function isAudioFormat(format: unknown): boolean {
   return typeof format === "string" && /listen|audio/i.test(format);
@@ -70,7 +73,7 @@ export function availabilityFor(
 
 async function hardcoverGraphQL<T = any>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const token = await getSetting("hardcoverApiKey");
-  if (!token) throw new HardcoverError("Hardcover token not set. Add it in Settings.");
+  if (!token) throw new HardcoverNotConfiguredError("Hardcover token not set. Add it in Settings.");
 
   const res = await fetch(HARDCOVER_API, {
     method: "POST",

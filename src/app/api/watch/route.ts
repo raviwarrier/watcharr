@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { HardcoverError } from "@/lib/hardcover";
+import { HardcoverError, HardcoverNotConfiguredError } from "@/lib/hardcover";
 import { watchAuthor, watchBook } from "@/lib/watch";
 
 const bodySchema = z.discriminatedUnion("type", [
@@ -45,6 +45,9 @@ export async function POST(req: Request) {
     const result = await watchAuthor(parsed.data.hardcoverAuthorId, parsed.data.name);
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
+    if (err instanceof HardcoverNotConfiguredError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err instanceof HardcoverError) {
       return NextResponse.json({ error: err.message }, { status: 502 });
     }

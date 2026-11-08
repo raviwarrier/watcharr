@@ -43,8 +43,24 @@ port_in_use() {
 
 STOPPED=0
 
+# True only when PM2 has a Watcharr process with status "online".
+# (`pm2 pid` prints 0 for a stopped app, so it can't be used to tell running from stopped.)
+pm2_online() {
+  pm2 jlist 2>/dev/null | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        const apps = JSON.parse(s);
+        process.exit(apps.some((a) => a.name === "watcharr" && a.pm2_env && a.pm2_env.status === "online") ? 0 : 1);
+      } catch {
+        process.exit(1);
+      }
+    });
+  '
+}
+
 # 1. Primary stop method: PM2
-if pm2 pid watcharr 2>/dev/null | grep -E -q '^[0-9]+$'; then
+if pm2_online; then
   pm2 stop watcharr >/dev/null 2>&1 || true
   echo "Stopped Watcharr via PM2."
   STOPPED=1

@@ -12,8 +12,24 @@ PORT="$( (grep -E '^PORT=' .env.local 2>/dev/null || true) | tail -1 | cut -d= -
 PORT="${PORT:-4242}"
 BASE="http://localhost:$PORT"
 
-# Check if PM2 is already managing Watcharr and it's running
-if pm2 pid watcharr 2>/dev/null | grep -E -q '^[0-9]+$'; then
+# True only when PM2 has a Watcharr process with status "online".
+# (`pm2 pid` prints 0 for a stopped app, so it can't be used to tell running from stopped.)
+pm2_online() {
+  pm2 jlist 2>/dev/null | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        const apps = JSON.parse(s);
+        process.exit(apps.some((a) => a.name === "watcharr" && a.pm2_env && a.pm2_env.status === "online") ? 0 : 1);
+      } catch {
+        process.exit(1);
+      }
+    });
+  '
+}
+
+# Check if PM2 is already running Watcharr
+if pm2_online; then
   echo "Watcharr is already running via PM2 at $BASE"
   exit 0
 fi
@@ -31,7 +47,7 @@ pm2 save
 # Wait until it answers.
 for _ in $(seq 1 60); do
   sleep 1
-  if curl -fsS -o /dev/null "$BASE/dashboard" 2>/dev/null; then
+  if curl -fsS -o /dev/null "$BASE/login" 2>/dev/null; then
     echo "Watcharr is running at $BASE"
     exit 0
   fi

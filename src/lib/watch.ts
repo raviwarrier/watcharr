@@ -101,6 +101,16 @@ export async function upsertBook(detail: BookDetail, authorWatchId: number | nul
  * With replaceBookId, an existing unlinked row is linked to Hardcover instead of duplicated.
  */
 export async function watchBook(hardcoverId: number, replaceBookId?: number) {
+  // A book the user ignored stays in the database. Ask before tracking it again, instead of re-adding it.
+  if (!replaceBookId) {
+    const [ignored] = await db
+      .select()
+      .from(schema.books)
+      .where(eq(schema.books.hardcoverId, hardcoverId))
+      .limit(1);
+    if (ignored?.ignoredAt) return { ignored: true as const, book: ignored };
+  }
+
   const detail = await getBookDetail(hardcoverId);
   if (!detail) return null;
 
@@ -135,6 +145,28 @@ export async function watchBook(hardcoverId: number, replaceBookId?: number) {
   }
 
   return upsertBook(detail, null);
+}
+
+/** Hides a book from the list. The record is kept, so adding it again can ask first. */
+export async function ignoreBook(bookId: number) {
+  const now = new Date().toISOString();
+  const [row] = await db
+    .update(schema.books)
+    .set({ ignoredAt: now, updatedAt: now })
+    .where(eq(schema.books.id, bookId))
+    .returning();
+  return row ?? null;
+}
+
+/** Puts an ignored book back on the list. */
+export async function restoreBook(bookId: number) {
+  const now = new Date().toISOString();
+  const [row] = await db
+    .update(schema.books)
+    .set({ ignoredAt: null, updatedAt: now })
+    .where(eq(schema.books.id, bookId))
+    .returning();
+  return row ?? null;
 }
 
 /** Watch an author: store the author, then add every upcoming book by them. */

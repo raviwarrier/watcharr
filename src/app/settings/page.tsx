@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CautionZone } from "@/components/caution-zone";
 import { ImportSection } from "@/components/import-section";
 import { AuthorSettings } from "@/components/author-settings";
+import { IgnoredBooksSettings } from "@/components/ignored-books-settings";
 import { ReconcileSection } from "@/components/reconcile-section";
 import { cn } from "@/lib/utils";
 import {
@@ -491,6 +492,8 @@ export default function SettingsPage() {
       <ReconcileSection />
 
       <ImportSection />
+
+      <IgnoredBooksSettings />
 
       <GroupHeading title="Authors" />
 

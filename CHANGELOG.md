@@ -3,6 +3,33 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.18.2] - 2026-11-08
+
+### Fixed
+- On Ignored Books, the search field sits on the right above the sort, as on the watchlist.
+
+## [0.18.1] - 2026-11-08
+
+### Changed
+- The ignore button uses the eye-closed icon instead of eye-off.
+
+## [0.18.0] - 2026-11-08
+
+### Added
+- Settings > Books > Ignored Books opens a page that shows the ignored books in the same layout as the watchlist. Search by title or author, grid or list, and sort are available.
+- On that page, each book has a Restore button (eye icon) and See details. Other actions are hidden.
+
+### Changed
+- Ignoring a book asks for confirmation first, since adding it back means searching for it again.
+- Adding an ignored book asks "Track this book again?" in the same style as the other confirmations.
+
+## [0.17.0] - 2026-11-08
+
+### Changed
+- The delete button on book cards is now an eye-off button, "Ignore this book". It hides the book from the list instead of deleting it. The record is kept.
+- Ignored books are left out of the watchlist, the calendar feed, the scheduled re-check, and author cards.
+- Adding a book you ignored earlier asks "Track this book again?". Yes puts it back on the list. Cancel leaves it ignored. Importing it skips it as "Ignored earlier".
+
 ## [0.16.3] - 2026-11-07
 
 ### Changed

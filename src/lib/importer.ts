@@ -269,6 +269,8 @@ async function processItem(item: ItemRow): Promise<void> {
     setItem(item.id, "failed", "Not found on Hardcover", hardcoverId);
   } else if ("conflict" in result || "missing" in result) {
     setItem(item.id, "skipped", "Already on your watchlist", hardcoverId);
+  } else if ("ignored" in result) {
+    setItem(item.id, "skipped", "Ignored earlier", hardcoverId);
   } else {
     setItem(item.id, "done", null, hardcoverId);
     // Mark it as owned in Audiobookshelf too, if the toggle is on and Audiobookshelf is set up.

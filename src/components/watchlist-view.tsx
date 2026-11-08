@@ -1365,7 +1365,13 @@ export function WatchlistView({ mode }: { mode: ListMode }) {
       ) : (
         <>
           <section className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* The ignored list has no tabs, so its search and layout switch sit on the right, as on the watchlist. */}
+            <div
+              className={cn(
+                "flex flex-col gap-3 sm:flex-row sm:items-center",
+                mode === "watchlist" ? "sm:justify-between" : "sm:justify-end",
+              )}
+            >
               {mode === "watchlist" && (
               <div role="tablist" aria-label="Filter books" className="inline-flex w-fit gap-1 rounded-lg border bg-card p-1">
                 {(

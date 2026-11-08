@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.18.2] - 2026-11-08
+
+### Fixed
+- On Ignored Books, the search field sits on the right above the sort, as on the watchlist.
+
 ## [0.18.1] - 2026-11-08
 
 ### Changed

@@ -1,6 +1,6 @@
 {
   "name": "watcharr",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "description": "Self-hosted tracker for books and authors. Watches Hardcover and Apple Books, and alerts you when the ebook or audiobook is out.",
   "license": "MIT",
   "author": "Ravi Warrier",

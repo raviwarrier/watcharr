@@ -88,7 +88,7 @@ pm2 save
 pm2 startup     # prints one command for you to run; it sets up start at boot
 ```
 
-Then use `pm2 status`, `pm2 logs watcharr`, `pm2 restart watcharr`, and `pm2 stop watcharr`. Run `npm run build` and then `pm2 restart watcharr` after you update the code.
+Then use `pm2 status`, `pm2 logs watcharr`, `pm2 restart watcharr`, and `pm2 stop watcharr`. After you update the code (`git pull`), run the install script again: `bash install.sh` (or `bash install_pm2.sh` if you run it under PM2). It builds the app and restarts it. Your access key and data are kept.
 
 Stop the background copy from `start.sh` or `start.ps1` before you start it with PM2, so only one copy uses the port.
 

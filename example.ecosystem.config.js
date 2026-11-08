@@ -13,7 +13,7 @@
 //   pm2 logs watcharr                  live logs
 //   pm2 restart watcharr | pm2 stop watcharr
 //
-// After updating the code, run `npm run build` and then `pm2 restart watcharr`.
+// After updating the code, run the install script again (it builds the app and restarts it).
 
 const fs = require("fs");
 const path = require("path");

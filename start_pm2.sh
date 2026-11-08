@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# CUSTOMIZED for Ravi's VPS: the paths below are /srv/Appdata/local/watcharr and /home/raviwarrier.
+# Most people should use the generic start.sh instead.
+#
 # Starts Watcharr via PM2. Builds first if there is no build yet.
 #   bash start_pm2.sh
 set -euo pipefail

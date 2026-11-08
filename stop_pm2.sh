@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# CUSTOMIZED for Ravi's VPS: the path below is /srv/Appdata/local/watcharr.
+# Most people should use the generic stop.sh instead.
+#
 # Stops Watcharr via PM2.
 #   bash stop_pm2.sh
 set -euo pipefail

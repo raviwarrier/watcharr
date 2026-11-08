@@ -286,7 +286,7 @@ ACCESS_KEY=""
 CALENDAR_TOKEN=""
 
 # ---------------------------------------------------------------- systemd service (OFF)
-# The recommended way to keep Watcharr running on Linux is PM2 (see ecosystem.config.js and the README).
+# The recommended way to keep Watcharr running on Linux is PM2 (see example.ecosystem.config.js and the README).
 # The systemd block below is commented out on purpose. To run Watcharr as a systemd service instead,
 # uncomment every line from "SERVICE_FILE=" to "sudo systemctl enable --now watcharr" and run this
 # script again. Stop the background copy first (bash stop.sh) so the port is free.

@@ -79,11 +79,11 @@ Run these from the project folder. Both run in the background.
 
 ### Run at boot with PM2 (recommended)
 
-[PM2](https://pm2.keymetrics.io) keeps Watcharr running, restarts it if it crashes, and can start it at boot. It works on macOS, Linux, and Windows. The `ecosystem.config.js` file in this repo is the PM2 setup.
+[PM2](https://pm2.keymetrics.io) keeps Watcharr running, restarts it if it crashes, and can start it at boot. It works on macOS, Linux, and Windows. The `example.ecosystem.config.js` file in this repo is the generic PM2 setup.
 
 ```bash
 npm install -g pm2
-pm2 start ecosystem.config.js
+pm2 start example.ecosystem.config.js
 pm2 save
 pm2 startup     # prints one command for you to run; it sets up start at boot
 ```

@@ -1,8 +1,10 @@
-// PM2 process file for Watcharr. Works on macOS, Linux and Windows.
+// GENERIC PM2 process file for Watcharr. Works on macOS, Linux and Windows.
+// Use this one for a standard setup. It runs from the folder this file is in.
+// (ravi.ecosystem.config.js is the version customized for the author's VPS.)
 //
 // Run the install script first (it builds the app), then:
 //   npm install -g pm2                 once, to install PM2
-//   pm2 start ecosystem.config.js      start Watcharr in the background
+//   pm2 start example.ecosystem.config.js   start Watcharr in the background
 //   pm2 save                           remember the process list
 //   pm2 startup                        print the command that makes PM2 start at boot; run it
 //

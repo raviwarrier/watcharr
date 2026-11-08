@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# CUSTOMIZED for Ravi's VPS: the paths below are /srv/Appdata/local/watcharr and /home/raviwarrier.
+# Most people should use the generic install.sh (and start.sh, stop.sh) instead.
+#
 # Installs Watcharr, builds it, and starts/restarts it via PM2 using start_pm2.sh.
 # Works on macOS and Linux.
 #

@@ -30,7 +30,7 @@ import {
   Search,
   FileUser,
   Eye,
-  EyeOff,
+  EyeClosed,
   Trash2,
   User,
   XCircle,
@@ -704,7 +704,7 @@ function WatchCard({
               aria-label={`Ignore ${b.title}`}
               title="Ignore this book"
             >
-              <EyeOff className="h-4 w-4" />
+              <EyeClosed className="h-4 w-4" />
             </Button>
           </div>
         )}

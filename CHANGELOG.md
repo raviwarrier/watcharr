@@ -3,6 +3,11 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.18.1] - 2026-11-08
+
+### Changed
+- The ignore button uses the eye-closed icon instead of eye-off.
+
 ## [0.18.0] - 2026-11-08
 
 ### Added

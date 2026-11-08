@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { getBookDetail, HardcoverError, HardcoverNotConfiguredError } from "@/lib/hardcover";
 import { upsertBook } from "@/lib/watch";
 import { sendGotify } from "@/lib/gotify";
@@ -100,7 +100,10 @@ export interface RecheckAllSummary {
 
 /** Re-checks every linked book in turn, pausing between requests to stay polite to the APIs. */
 export async function recheckAllLinked(delayMs = 1000): Promise<RecheckAllSummary> {
-  const linked = (await db.select({ id: schema.books.id, hardcoverId: schema.books.hardcoverId }).from(schema.books))
+  const linked = (await db
+    .select({ id: schema.books.id, hardcoverId: schema.books.hardcoverId })
+    .from(schema.books)
+    .where(isNull(schema.books.ignoredAt)))
     .filter((r) => r.hardcoverId !== null)
     .map((r) => r.id);
 

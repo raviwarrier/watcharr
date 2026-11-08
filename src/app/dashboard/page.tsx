@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { notify } from "@/components/notify";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import {
   BookOpen,
   CalendarClock,
@@ -29,6 +29,7 @@ import {
   RefreshCw,
   Search,
   FileUser,
+  EyeOff,
   Trash2,
   User,
   XCircle,
@@ -576,7 +577,7 @@ function WatchCard({
   checking,
   onCycleOwned,
   onRecheck,
-  onDelete,
+  onIgnore,
   onMatch,
 }: {
   b: Book;
@@ -584,7 +585,7 @@ function WatchCard({
   checking: boolean;
   onCycleOwned: (book: Book) => void;
   onRecheck: (id: number) => void;
-  onDelete: (book: Book) => void;
+  onIgnore: (book: Book) => void;
   onMatch: (book: Book) => void;
 }) {
   const tag = releaseTag(b.expectedReleaseDate, b.audiobookAvailable, b.hardcoverId !== null);
@@ -673,12 +674,13 @@ function WatchCard({
           </Button>
           <Button
             size="icon"
-            onClick={() => onDelete(b)}
-            className="h-8 w-8 bg-[#7f1d1d] text-white hover:bg-[#991b1b]"
-            aria-label={`Delete ${b.title}`}
-            title="Delete"
+            variant="outline"
+            onClick={() => onIgnore(b)}
+            className="h-8 w-8"
+            aria-label={`Ignore ${b.title}`}
+            title="Ignore this book"
           >
-            <Trash2 className="h-4 w-4" />
+            <EyeOff className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -778,6 +780,12 @@ export default function DashboardPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json().catch(() => null);
+      // The book was ignored earlier, so it wasn't added. Ask whether to track it again.
+      if (data?.ignored) {
+        setIgnoredPrompt({ id: data.book.id, title: data.book.title });
+        return;
+      }
       setMatching(null);
       setResults(null);
       setTitle("");
@@ -843,16 +851,34 @@ export default function DashboardPage() {
     }
   }
 
-  async function removeBook(book: Book) {
+  /** Hides a book from the list. The record is kept, so adding it again asks first. */
+  async function ignoreBook(book: Book) {
     setNotice(null);
     try {
-      const res = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/books/${book.id}/ignore`, { method: "POST" });
       if (!res.ok) throw new Error(await readError(res));
       setBooks((prev) => prev.filter((b) => b.id !== book.id));
       setMatching((m) => (m?.id === book.id ? null : m));
-      setNotice({ tone: "ok", text: `Removed "${book.title}".` });
+      setNotice({ tone: "ok", text: `Ignored "${book.title}".` });
     } catch (err) {
-      setNotice({ tone: "error", text: `Could not remove "${book.title}". ${err instanceof Error ? err.message : ""}` });
+      setNotice({ tone: "error", text: `Could not ignore "${book.title}". ${err instanceof Error ? err.message : ""}` });
+    }
+  }
+
+  /** Puts an ignored book back on the list, after the user says yes. */
+  async function trackAgain(id: number, title: string) {
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/books/${id}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error(await readError(res));
+      setIgnoredPrompt(null);
+      setResults(null);
+      setTitle("");
+      setAuthor("");
+      await loadAll();
+      setNotice({ tone: "ok", text: `"${title}" is back on your watchlist.` });
+    } catch (err) {
+      setNotice({ tone: "error", text: `Could not track "${title}" again. ${err instanceof Error ? err.message : ""}` });
     }
   }
 
@@ -920,7 +946,8 @@ export default function DashboardPage() {
   const [authorSort, setAuthorSort] = useState<AuthorSortKey>("author-asc");
   const [openBookId, setOpenBookId] = useState<number | null>(null);
   const [checkingAuthors, setCheckingAuthors] = useState<Set<number>>(new Set());
-  const [pendingDelete, setPendingDelete] = useState<Book | null>(null);
+  // An ignored book the user tried to add again; asks whether to track it again.
+  const [ignoredPrompt, setIgnoredPrompt] = useState<{ id: number; title: string } | null>(null);
   const [pendingAuthor, setPendingAuthor] = useState<AuthorWatch | null>(null);
   const [deleting, setDeleting] = useState(false);
   const view = useSyncExternalStore(subscribeView, getView, getServerView);
@@ -1367,7 +1394,7 @@ export default function DashboardPage() {
                       checking={checking.has(b.id)}
                       onCycleOwned={cycleOwned}
                       onRecheck={recheck}
-                      onDelete={setPendingDelete}
+                      onIgnore={ignoreBook}
                       onMatch={startMatch}
                     />
                   ))}
@@ -1390,9 +1417,9 @@ export default function DashboardPage() {
               checking={checking.has(openBook.id)}
               onCycleOwned={cycleOwned}
               onRecheck={recheck}
-              onDelete={(book) => {
+              onIgnore={(book) => {
                 setOpenBookId(null);
-                setPendingDelete(book);
+                ignoreBook(book);
               }}
               onMatch={(book) => {
                 setOpenBookId(null);
@@ -1403,22 +1430,22 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Delete this book?"
-        description={`"${pendingDelete?.title ?? ""}" will be removed from your watchlist, along with its check history.`}
-        confirmLabel="Delete"
-        busy={deleting}
-        onConfirm={async () => {
-          const book = pendingDelete;
-          if (!book) return;
-          setDeleting(true);
-          await removeBook(book);
-          setDeleting(false);
-          setPendingDelete(null);
-        }}
-      />
+      {/* Asked when a book the user ignored earlier is added again. Neutral styling: this isn't destructive. */}
+      <Dialog open={ignoredPrompt !== null} onOpenChange={(open) => !open && setIgnoredPrompt(null)}>
+        <DialogContent>
+          <DialogTitle>Track this book again?</DialogTitle>
+          <DialogDescription>
+            &quot;{ignoredPrompt?.title ?? ""}&quot; was ignored earlier. Do you want to track it again?
+          </DialogDescription>
+          {/* Footer is flex-row-reverse, so the first child sits on the right. */}
+          <DialogFooter>
+            <Button onClick={() => ignoredPrompt && trackAgain(ignoredPrompt.id, ignoredPrompt.title)}>Track again</Button>
+            <Button variant="outline" onClick={() => setIgnoredPrompt(null)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingAuthor !== null}

@@ -77,6 +77,7 @@ function addBookColumn(column: string, definition: string): void {
 addBookColumn("owned_ebook", "integer NOT NULL DEFAULT 0");
 addBookColumn("owned_audiobook", "integer NOT NULL DEFAULT 0");
 addBookColumn("audiobook_release_date", "text");
+addBookColumn("ignored_at", "text");
 addColumn("author_watches", "known_book_ids", "text");
 addColumn("author_watches", "slug", "text");
 addColumn("author_watches", "image_url", "text");

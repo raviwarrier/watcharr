@@ -27,6 +27,8 @@ export async function POST(req: Request) {
     if (parsed.data.type === "book") {
       const result = await watchBook(parsed.data.hardcoverId, parsed.data.replaceBookId);
       if (!result) return NextResponse.json({ error: "Book not found on Hardcover" }, { status: 404 });
+      // Not added: the user ignored this book earlier. The page asks whether to track it again.
+      if ("ignored" in result) return NextResponse.json(result, { status: 200 });
       if ("missing" in result) {
         return NextResponse.json(
           { error: "The book you were matching was removed. Search again to add it." },

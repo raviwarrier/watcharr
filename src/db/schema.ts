@@ -45,6 +45,9 @@ export const books = sqliteTable("books", {
   // What the user owns, marked by hand (independent of release status).
   ownedEbook: integer("owned_ebook", { mode: "boolean" }).notNull().default(false),
   ownedAudiobook: integer("owned_audiobook", { mode: "boolean" }).notNull().default(false),
+  // Set when the user ignores the book. Ignored books stay in the database but are hidden from the list,
+  // the calendar, and the scheduled re-check. Null = on the list.
+  ignoredAt: text("ignored_at"),
   // Audiobookshelf match: item id, how it was matched (isbn | title_author | review), and when it was checked.
   absItemId: text("abs_item_id"),
   absMatch: text("abs_match"),

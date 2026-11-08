@@ -3,6 +3,13 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.17.0] - 2026-11-08
+
+### Changed
+- The delete button on book cards is now an eye-off button, "Ignore this book". It hides the book from the list instead of deleting it. The record is kept.
+- Ignored books are left out of the watchlist, the calendar feed, the scheduled re-check, and author cards.
+- Adding a book you ignored earlier asks "Track this book again?". Yes puts it back on the list. Cancel leaves it ignored. Importing it skips it as "Ignored earlier".
+
 ## [0.16.3] - 2026-11-07
 
 ### Changed

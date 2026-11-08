@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/db/schema";
 
@@ -23,6 +24,7 @@ export async function GET() {
   const books = (await db
     .select()
     .from(schema.books)
+    .where(isNull(schema.books.ignoredAt))
     .orderBy(schema.books.audiobookReleaseDate))
     .map((b) => ({
       ...b,

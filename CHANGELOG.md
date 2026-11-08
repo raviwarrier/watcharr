@@ -3,6 +3,16 @@
 All notable changes to Watcharr are documented here.
 Versions follow `X.Y.Z`: `Z` for bug fixes, `Y` for new features, and `X` for major changes.
 
+## [0.18.0] - 2026-11-08
+
+### Added
+- Settings > Books > Ignored Books opens a page that shows the ignored books in the same layout as the watchlist. Search by title or author, grid or list, and sort are available.
+- On that page, each book has a Restore button (eye icon) and See details. Other actions are hidden.
+
+### Changed
+- Ignoring a book asks for confirmation first, since adding it back means searching for it again.
+- Adding an ignored book asks "Track this book again?" in the same style as the other confirmations.
+
 ## [0.17.0] - 2026-11-08
 
 ### Changed
